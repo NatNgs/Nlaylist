@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8"/>
+
+		<!-- external -->
+		<link rel="stylesheet" href="https://code.jquery.com/ui/1.14.1/themes/base/jquery-ui.css">
+		<script src="https://code.jquery.com/jquery-3.7.1.js"></script>
+		<script src="https://code.jquery.com/ui/1.14.1/jquery-ui.min.js"></script>
+		<script src="https://www.youtube.com/player_api"></script>
+
+		<!-- internal -->
+		<link rel="stylesheet" href="css/main.css">
+		<script src="js/papaparse.min.js"></script>
+		<script src="js/main.js"></script>
+	</head>
+	<body>
+		<!-- Menu -->
+		<div id="menu">
+			<button onclick="loadFile()">Load from file</button>
+			<button onclick="loadText()">Load from text</button>
+			<button onclick="saveFile()">Save to file</button>
+			<button onclick="saveText()">Save to text</button>
+		</div>
+
+		<!-- Players -->
+		<div id="players">
+			<div id="leftvid">
+				<div id="leftPlayer"><!-- video player --></div>
+				<div id="leftInfo" class="vidInfo">Infos for left video</div>
+			</div>
+			<div id="rightvid">
+				<div id="rightPlayer"><!-- video player --></div>
+				<div id="rightInfo" class="vidInfo">Infos for right video</div>
+			</div>
+		</div>
+
+		<!-- Actions -->
+		<div id="actions">
+			<div id="leftactions">
+				<button id="btn_lft2" class="btn3" onclick="choice('btn_lft2')">&lt;&lt;&lt;</button>
+				<button id="btn_lft1" class="btn1" onclick="choice('btn_lft1')">&lt;</button>
+			</div>
+			<div id="midactions">
+				<button id="btn_eql" class="btn0" onclick="choice('btn_eql')">=</button><br/>
+				<button id="btn_skp" class="btns" onclick="skip()">Skip</button><br/>
+				<button id="btn_mrg" onclick="mergeLeft()">&lt; Merge &lt;</button>
+				<button id="btn_del" onclick="removeRight()">Delete ></button>
+				<button id="btn_mrg" onclick="mergeRight()">> Merge ></button>
+			</div>
+			<div id="rightactions">
+				<button id="btn_rgt1" class="btn1" onclick="choice('btn_rgt1')">></button>
+				<button id="btn_rgt2" class="btn3" onclick="choice('btn_rgt2')">>>></button>
+			</div>
+		</div>
+
+		<!-- Ranking -->
+		<div id="ranking"></div>
+
+		<!-- popups -->
+		<div id="dialog-inputText" hidden>
+			<textarea id="inputText"></textarea>
+		</div>
+	</body>
+</html>
