@@ -1,0 +1,31 @@
+function toast(message, toastClass, parentDiv) {
+	parentDiv = document.getElementById(parentDiv) || document.body
+	let previousToasts = parentDiv.querySelectorAll(".toast");
+
+	let box = document.createElement("div");
+	box.classList.add("toast")
+	if(toastClass) box.classList.add(toastClass);
+	box.innerHTML = `<div class="toast-content-wrapper">
+			<div class="toast-message">${message}</div>
+			<div class="toast-progress"></div>
+		</div>`;
+	parentDiv.prepend(box)
+
+	const duration = 5000 + (500*previousToasts?.length||0);
+
+	// Close the toast after duration
+	box.querySelector(".toast-progress").style.animationDuration = `${duration}ms`;
+	setTimeout(()=>{
+		box.classList.add("closing");
+		setTimeout(() => {
+			parentDiv.removeChild(box);
+		}, 1000)
+	}, duration)
+
+	// Move all previous toast down by this toast height
+	const boxHeight = box.getBoundingClientRect().height - 10;
+	for(const toast of previousToasts) {
+		const curr = Number.parseInt(toast.style.top || 0)
+		toast.style.top = `${curr + boxHeight}px`
+	}
+};

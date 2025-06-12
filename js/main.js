@@ -1,50 +1,41 @@
-//
-// TODOLIST:
-//
-// - Combo mode:
-//    - A vs B, B wins => register B > A
-//    - B vs C, C wins => register C > B and also C > A
-//    - C vs D, D wins => register D > C, D > B, D > A
-//    - D vs E, D wins => reset combo and register D > E only
-//   if skip without note or =, reset combo
-//   if delete or merge, ignore and continue combo
-//
-// - Rebalance score sum
-//    After loaded a bunch of items (after the whole group only), compute the sum of all scores.
-//    Sum should be exactly 0. If not, split the remaining and add that to every item such as sum become 0
-//     Split the remaining with weight depending on scoreToProba(current, 0), so that high scores pay a bit more
-//
-
 /**** **** **** **** INIT **** **** **** ****/
 
 async function sleep(ms) {
 	await new Promise(resolve => setTimeout(resolve, ms))
 }
-
-
-const ELO_BASE = 400
-const ELO_K = 33
-function scoreToProba(eloA, eloB) {
-	return 1 / (1 + Math.pow(10, (eloB - eloA) / ELO_BASE))
+async function waitUntilTrue(condition) {
+	for(let i=1; i<10; i++) {
+		if(condition()) return true
+		await sleep(i*100)
+	}
+	return false
 }
 
-
-
 // Prepare Youtube Player
-let playerLeft, playerRight;
 function onYouTubeIframeAPIReady() {
-	playerLeft = new YT.Player('leftPlayer', {
+	MODL.playerLeft = new YT.Player('leftPlayer', {
 		height: '100%',
 		width: '100%',
 		videoId: '',
 		disablekb: 1,
 		controls: 0,
 		iv_load_policy: 3,
+		events: {
+			'onStateChange': (evt) => {
+				if (evt.data == YT.PlayerState.ENDED) {
+					// Launch righ video automatically after a second
+					setTimeout(()=>MODL.playerRight.playVideo(), 1000)
+				}
+			}
+		}
 	});
-	playerRight = new YT.Player('rightPlayer', {
+	MODL.playerRight = new YT.Player('rightPlayer', {
 		height: '100%',
 		width: '100%',
 		videoId: '',
+		disablekb: 1,
+		controls: 0,
+		iv_load_policy: 3,
 		events: {
 			'onStateChange': (evt) => {
 				if (evt.data == YT.PlayerState.ENDED) {
@@ -52,9 +43,6 @@ function onYouTubeIframeAPIReady() {
 				}
 			}
 		},
-		disablekb: 1,
-		controls: 0,
-		iv_load_policy: 3,
 	});
 
 	curtain = document.getElementById('curtain')
@@ -63,156 +51,8 @@ function onYouTubeIframeAPIReady() {
 }
 
 
-const MODL = new (function() {
-	const vdata = {} // vid : {score: score, info: {youtube video info}}
-
-	this.isReady = function() {
-		return Object.keys(vdata).filter(vid => !unplayable.includes(vid)).length > 3
-	}
-
-	this.addVid = function(url, score) {
-		/** extract id from url (always 11 char length)
-		 * Possible forms are:
-		 * - http(s)://website.xxx/...?v=<id>&...
-		 * - http(s)://website.xxx/...?...&v=<id>&...
-		 * - http(s)://website.xxx/<id>
-		 */
-		let vid = null;
-		if(url.length === 11) {
-			vid = url
-		} else {
-			let match = url.match(/(?:[^/]+\/)*([a-zA-Z0-9_-]{11})/)
-			if(match && match.length > 1)
-				vid = match[1]
-			else {
-				// Extract url params, and find parameter "v"
-				match = url.match(/[?&]v=([a-zA-Z0-9_-]{11})/)
-				if(match && match.length > 1)
-					vid = [1]
-			}
-		}
-		if(!vid) return // failed to extract vid
-		if(vdata[vid]) return // vid already in vids: ignore
-
-		vdata[vid] = {score: score}
-	}
-
-	const history = []
-	this.pickNext = function() {
-		// Random pick one of vids
-		let vids = Object.keys(vdata)
-			.filter(vid => !unplayable.includes(vid))
-		const maxLn = (vids.length/2) | 0
-		vids = vids.filter(vid => !history.includes(vid))
-
-		if(!vids.length) {
-			alert('Not enough playable video left')
-			return
-		}
-
-		// Weight them all (weight = scoreToProba(currScore, 0))
-		const weights = vids.map(vid => scoreToProba(vdata[vid].score, 0)**2)
-
-		// Pick one with weighted random
-		const totalWeight = weights.reduce((a, b) => a + b)
-		const rand = Math.random() * totalWeight
-		let currWeight = 0
-		let vid = vids[vids.length-1]
-		for(let i = 0; i < weights.length; i++) {
-			currWeight += weights[i]
-			if(rand < currWeight) {
-				vid = vids[i]
-				break
-			}
-		}
-
-		// History
-		history.unshift(vid)
-		if(history.length > maxLn) {
-			history.length = maxLn
-		}
-
-		return vid
-	}
-
-	const unplayable = []
-	this.markAsUnplayable = function(vid) {
-		unplayable.push(vid)
-		// remove vid from history
-		history.splice(history.indexOf(vid), 1)
-
-		console.log(vid, 'was not able to be played -- Remaining videos:', Object.keys(vdata).filter(vid => !unplayable.includes(vid)).length)
-	}
-	this.getScores = function() {
-		const scores = {}
-		for(const vid in vdata) {
-			if(unplayable.includes(vid)) continue
-			scores[vid] = vdata[vid].score
-		}
-		return scores
-	}
-
-	this.applyVote = function(id_a, score, id_b) {
-		const currElo_a = vdata[id_a].score
-		const currElo_b = vdata[id_b].score
-
-		const upd = ELO_K * (score - (scoreToProba(currElo_b, currElo_a)-0.5)*2)
-		vdata[id_a].score -= upd
-		vdata[id_b].score += upd
-	}
-
-	this.removeVideo = function(vidToRemove, vidToMerge) {
-		if(vidToMerge) {
-			// Merge vdata
-			vdata[vidToMerge].score += vdata[vidToRemove].score
-			if(!vdata[vidToMerge].merged) vdata[vidToMerge].merged = []
-			if(vidToRemove.info) vdata[vidToMerge].merged.push(vidToRemove.info)
-			if(vidToRemove.merged) vdata[vidToMerge].merged.push(...vidToRemove.merged)
-		}
-		// Replace occurence in history with vidToMerge
-		history.splice(history.indexOf(vidToRemove), 1, vidToMerge ? [vidToMerge] : undefined)
-
-		// Remove from vdata
-		delete vdata[vidToRemove]
-	}
-
-	this.setInfodata = function(vid, title, duration) {
-		vdata[vid].info = {video_id: vid}
-		if(title) vdata[vid].info.title = title
-		if(duration) vdata[vid].info.duration = duration
-	}
-	this.getInfodata = function(vid) {
-		return vdata[vid].info || {}
-	}
-})
-
-
 /**** **** **** **** ACTIONS **** **** **** ****/
 
-function onLoad(content) {
-	const wasReady = MODL.isReady()
-	const numberWas = Object.keys(MODL.getScores()).length
-
-	// Parse text such as every line is "<video url>" or "<video url> <score>". Ignore other lines
-	const rows = content.split('\n')
-	for(const r of rows) {
-		const parts = r.trim().replace(/[ \t]+/, ' ').split(' ')
-		if(parts.length == 1) {
-			MODL.addVid(parts[0], null)
-		} else if(parts.length == 2) {
-			MODL.addVid(parts[0], Number.parseInt(parts[1]))
-		}
-	}
-
-	if(!wasReady && MODL.isReady()) {
-		loadPlayers()
-	}
-
-	const numberIs = Object.keys(MODL.getScores()).length
-	if(numberIs > numberWas) {
-		console.log('Added', numberIs-numberWas, 'new videos to the list')
-	}
-}
 function loadFile() {
 	// Prompt for a .tsv file, then load it
 	const input = document.createElement('input')
@@ -221,43 +61,37 @@ function loadFile() {
 	input.onchange = () => {
 		const file = input.files[0]
 		const reader = new FileReader()
-		reader.onload = () => onLoad(reader.result)
+		reader.onload = () => {
+			const added = MODL.addFromTSV(reader.result)
+			const total = Object.keys(MODL.getScores()).length
+			if(added) {
+				toast(`${added} new videos listed (now ${total} listed)`, 'toast-ok')
+			} else {
+				toast(`No new video listed (${total} listed)`, 'toast-err')
+			}
+		}
 		reader.readAsText(file)
 	}
 	input.click()
 }
-function loadText() {
-	// Prompt multiline text in JQueryUI modal form
-	const dialog = $("#dialog-inputText").dialog({
-		autoOpen: true,
-		modal: true,
-		width: "50em",
-		buttons: {
-			"Cancel": () => dialog.dialog("close"),
-			"Ok": () => {
-				const text = $("#inputText").val()
-				onLoad(text)
-				dialog.dialog("close")
-			}
-		},
-		close: () => dialog.dialog("close")
-	})
-	dialog.dialog("open")
-}
-function saveToText() {
-	// export MODL data as text as "<vid>\t<rounded score>"
-	let text = ''
-	const scores = MODL.getScores()
-	const sortedScores = Object.keys(scores)
-	sortedScores.sort((a, b) => scores[b] - scores[a])
-	for(const vid of sortedScores) {
-		text += vid + '\t' + Math.round(scores[vid]) + '\n'
+function addFromTextInput() {
+	// Prompt for input text
+	const userInput = prompt('Youtube video ids (11 char length) and/or video url to add (separated by spaces or ",")')
+
+	if(userInput) {
+		const added = MODL.addFromTSV(userInput.split(/[ \n\t,;]+/).join('\n'))
+		const total = Object.keys(MODL.getScores()).length
+		if(added) {
+			toast(`${added} new videos listed (now ${total} listed)`, 'toast-ok')
+		} else {
+			toast(`No new video listed (${total} listed)`, 'toast-err')
+		}
 	}
-	return text
 }
+
 function saveFile() {
 	// Ask to save text file .tsv with content is "<vid>\t<rounded score>"
-	const blob = new Blob([saveToText()], {type: "text/plain;charset=utf-8"})
+	const blob = new Blob([MODL.exportToTSV()], {type: "text/plain;charset=utf-8"})
 	const url = URL.createObjectURL(blob)
 	const a = document.createElement("a")
 	a.href = url
@@ -265,10 +99,6 @@ function saveFile() {
 	a.click()
 	URL.revokeObjectURL(url)
 }
-function saveText() {
-	alert(saveToText())
-}
-
 
 function choice(selection) {
 	const lst = [
@@ -294,43 +124,53 @@ function getCurrentChoice() {
 }
 
 async function shiftVids() {
-	playerLeft.stopVideo()
-	playerRight.stopVideo()
 
 	// Move right vid to the left
-	const old_right = playerRight.getVideoData()
+	const old_right = MODL.playerRight.getVideoData()
 	if(old_right && old_right.video_id) {
-		const old_left = playerLeft.getVideoData()
+		const wasPlayingRight = (MODL.playerRight.getPlayerState() == YT.PlayerState.PLAYING)
+
+		const old_left = MODL.playerLeft.getVideoData()
 		const currSelection = getCurrentChoice()
 		if(old_left && old_left.video_id && currSelection != null) {
 			MODL.applyVote(old_left.video_id, currSelection, old_right.video_id)
 		}
-		playerLeft.cueVideoById(old_right.video_id)
-	}
-	// Set left info content
-	if(old_right && old_right.video_id) {
-		const linfo = document.getElementById('leftInfo')
-		linfo.innerText = `Score: ${MODL.getScores()[old_right.video_id] | 0}`
+		MODL.playerLeft.cueVideoById(old_right.video_id)
+
+		if(wasPlayingRight) {
+			MODL.playerRight.stopVideo()
+			MODL.playerLeft.playVideo()
+		}
 	}
 
 	// Find next vid, and put it to the right
 	let new_right = MODL.pickNext()
-	playerRight.cueVideoById(new_right)
-	await sleep(500)
+	MODL.playerRight.cueVideoById(new_right)
+	await waitUntilTrue(() => MODL.playerRight?.playerInfo?.videoData?.video_id === new_right)
 
-	while(!playerRight.getVideoData().isPlayable) {
+	while(!MODL.playerRight.getVideoData()?.isPlayable) {
+		toast("Failed to play previous video: skipped", 'toast-err', 'rightvid')
 		MODL.markAsUnplayable(new_right)
 		new_right = MODL.pickNext()
-		playerRight.cueVideoById(new_right)
-		await sleep(500)
+		MODL.playerRight.cueVideoById(new_right)
+		await waitUntilTrue(() => MODL.playerRight?.playerInfo?.videoData?.video_id === new_right)
 	}
 
-	// Set right info content
+	// Set left info content
+	const linfo = document.getElementById('leftInfo')
 	const rinfo = document.getElementById('rightInfo')
-	rinfo.innerText = `Score: ${MODL.getScores()[new_right] | 0}`
+	if(old_right && old_right.video_id) {
+		const currScores = MODL.getScores()
+		const probaLeft = scoreToProba(currScores[old_right.video_id], currScores[new_right])
+		linfo.innerText = `Preference: ${Math.round(100*probaLeft) + '%'} (ELO: ${Math.round(currScores[old_right.video_id])+1000})`
+		rinfo.innerText = `Preference: ${Math.round(100*(1-probaLeft)) + '%'} (ELO: ${Math.round(currScores[new_right])+1000})`
+	} else {
+		linfo.innerText = '-'
+		rinfo.innerText = '-'
+	}
 
 	// update MODL info
-	MODL.setInfodata(new_right, playerRight.getVideoData().title, playerRight.getDuration())
+	MODL.setInfodata(new_right, MODL.playerRight.getVideoData().title, MODL.playerRight.getDuration())
 
 	// Reset choice
 	choice(null)
@@ -353,7 +193,7 @@ function updateRankingDiv() {
 		div.classList.add('rankingItem')
 
 		const scoreCell = document.createElement('div')
-		scoreCell.innerText = (score > 0 ? '+' : '') + ('' + (score | 0)).padStart(3, ' ')
+		scoreCell.innerText = (Math.round(100*scoreToProba(score, 0)) + '%').padStart(3, ' ')
 		scoreCell.classList.add('score')
 		div.appendChild(scoreCell)
 
@@ -374,29 +214,40 @@ function updateRankingDiv() {
 
 async function loadPlayers() {
 	await shiftVids()
-	skip()
+	await shiftVids()
+	// Launch left video automatically
+	MODL.playerLeft.playVideo()
 }
 async function skip() {
-	await shiftVids()
-	// Launch righ video automatically
-	playerRight.playVideo()
+	if(MODL.playerLeft.getPlayerState() == YT.PlayerState.PLAYING) {
+		// Left video is playing: launch right video
+		MODL.playerLeft.stopVideo()
+		MODL.playerRight.playVideo()
+	} else {
+		await shiftVids()
+		if(MODL.playerLeft.getPlayerState() !== YT.PlayerState.PLAYING) {
+			MODL.playerRight.playVideo()
+		}
+	}
 }
 
-function mergeRight() {
+async function mergeRight() {
 	choice(null)
-	MODL.removeVideo(playerLeft.getVideoData().video_id, playerRight.getVideoData().video_id)
-	skip()
+	MODL.removeVideo(MODL.playerLeft.getVideoData().video_id, MODL.playerRight.getVideoData().video_id)
+	await shiftVids()
+	MODL.playerRight.playVideo()
 }
-function mergeLeft() {
+async function mergeLeft() {
 	choice(null)
-	MODL.removeVideo(playerRight.getVideoData().video_id, playerLeft.getVideoData().video_id)
-	playerRight.cueVideoById(playerLeft.getVideoData().video_id)
-	skip()
+	MODL.removeVideo(MODL.playerRight.getVideoData().video_id, MODL.playerLeft.getVideoData().video_id)
+	MODL.playerRight.cueVideoById(MODL.playerLeft.getVideoData().video_id)
+	await shiftVids()
+	MODL.playerRight.playVideo()
 }
 async function removeRight() {
 	choice(null)
-	MODL.removeVideo(playerRight.getVideoData().video_id)
-	playerRight.cueVideoById(playerLeft.getVideoData().video_id)
-	await sleep(500)
-	skip()
+	MODL.removeVideo(MODL.playerRight.getVideoData().video_id)
+	MODL.playerRight.cueVideoById(MODL.playerLeft.getVideoData().video_id)
+	await shiftVids()
+	MODL.playerRight.playVideo()
 }

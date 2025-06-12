@@ -22,6 +22,7 @@ body {
 #players > * {
 	aspect-ratio: 1.5;
 	margin: 0.25em;
+	position: relative;
 }
 .vidInfo {
 	text-align: center;

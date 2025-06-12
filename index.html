@@ -4,23 +4,21 @@
 		<meta charset="utf-8"/>
 
 		<!-- external -->
-		<link rel="stylesheet" href="https://code.jquery.com/ui/1.14.1/themes/base/jquery-ui.css">
-		<script src="https://code.jquery.com/jquery-3.7.1.js"></script>
-		<script src="https://code.jquery.com/ui/1.14.1/jquery-ui.min.js"></script>
-		<script src="https://www.youtube.com/player_api"></script>
+		<script src="https://www.youtube.com/player_api" defer></script>
 
 		<!-- internal -->
 		<link rel="stylesheet" href="css/main.css">
-		<script src="js/papaparse.min.js"></script>
+		<link rel="stylesheet" href="css/toast.css">
+		<script src="js/modl.js"></script>
 		<script src="js/main.js"></script>
+		<script src="js/toasts.js" async></script>
 	</head>
 	<body>
 		<!-- Menu -->
 		<div id="menu">
 			<button onclick="loadFile()">Load from file</button>
-			<button onclick="loadText()">Load from text</button>
 			<button onclick="saveFile()">Save to file</button>
-			<button onclick="saveText()">Save to text</button>
+			<button onclick="addFromTextInput()">Add videos</button>
 		</div>
 
 		<!-- Players -->
@@ -38,28 +36,23 @@
 		<!-- Actions -->
 		<div id="actions">
 			<div id="leftactions">
-				<button id="btn_lft2" class="btn3" onclick="choice('btn_lft2')">&lt;&lt;&lt;</button>
-				<button id="btn_lft1" class="btn1" onclick="choice('btn_lft1')">&lt;</button>
+				<button id="btn_lft2" class="btn3" onclick="choice('btn_lft2')" title="I prefer the left video a lot">&lt;&lt;&lt;</button>
+				<button id="btn_lft1" class="btn1" onclick="choice('btn_lft1')" title="I prefer the left video">&lt;</button>
 			</div>
 			<div id="midactions">
-				<button id="btn_eql" class="btn0" onclick="choice('btn_eql')">=</button><br/>
-				<button id="btn_skp" class="btns" onclick="skip()">Skip</button><br/>
-				<button id="btn_mrg" onclick="mergeLeft()">&lt; Merge &lt;</button>
-				<button id="btn_del" onclick="removeRight()">Delete ></button>
-				<button id="btn_mrg" onclick="mergeRight()">> Merge ></button>
+				<button id="btn_eql" class="btn0" onclick="choice('btn_eql')" title="I do not prefer left or right video">=</button><br/>
+				<button id="btn_skp" class="btns" onclick="skip()" title="Apply vote and show the next video">Next</button><br/>
+				<button id="btn_mrg" onclick="mergeLeft()" title="Both video are the same: Remove the right one, and merge it into the left one">&lt; Merge &lt;</button>
+				<button id="btn_del" onclick="removeRight()" title="Remove the right video from the list">Delete ></button>
+				<button id="btn_mrg" onclick="mergeRight()" title="Both video are the same: Remove the left one, and merge it into the right one">> Merge ></button>
 			</div>
 			<div id="rightactions">
-				<button id="btn_rgt1" class="btn1" onclick="choice('btn_rgt1')">></button>
-				<button id="btn_rgt2" class="btn3" onclick="choice('btn_rgt2')">>>></button>
+				<button id="btn_rgt1" class="btn1" onclick="choice('btn_rgt1')" title="I prefer the right video">></button>
+				<button id="btn_rgt2" class="btn3" onclick="choice('btn_rgt2')" title="I prefer the right video a lot">>>></button>
 			</div>
 		</div>
 
 		<!-- Ranking -->
 		<div id="ranking"></div>
-
-		<!-- popups -->
-		<div id="dialog-inputText" hidden>
-			<textarea id="inputText"></textarea>
-		</div>
 	</body>
 </html>
