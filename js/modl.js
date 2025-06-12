@@ -41,6 +41,9 @@ const PlaylistModel = function() {
 		if(vdata[vid]) return // vid already in vids: ignore
 
 		vdata[vid] = {score: score}
+
+		// Add last to history if not yet in it
+		if(!history.includes(vid)) history.push(vid)
 	}
 
 	const history = []
@@ -48,8 +51,11 @@ const PlaylistModel = function() {
 		// Random pick one of vids
 		let vids = Object.keys(vdata)
 			.filter(vid => !unplayable.includes(vid))
-		const maxLn = (vids.length/2) | 0
-		vids = vids.filter(vid => !history.includes(vid))
+
+		vids = vids.filter(vid => {
+			const i = history.indexOf(vid)
+			return i === -1 || i > vids.length/2
+	 	})
 
 		if(!vids.length) {
 			alert('Not enough playable video left')
@@ -58,6 +64,9 @@ const PlaylistModel = function() {
 
 		// Weight them all (weight = scoreToProba(currScore, 0))
 		const weights = vids.map(vid => scoreToProba(vdata[vid].score, 0)**2)
+
+		// Give oldest video in history a significant weight boost
+		weights[weights.length-1] += 1
 
 		// Pick one with weighted random
 		const totalWeight = weights.reduce((a, b) => a + b)
@@ -72,11 +81,9 @@ const PlaylistModel = function() {
 			}
 		}
 
-		// History
+		// History: move vid to the front of the list
+		history.splice(history.indexOf(vid), 1)
 		history.unshift(vid)
-		if(history.length > maxLn) {
-			history.length = maxLn
-		}
 
 		return vid
 	}
@@ -115,8 +122,9 @@ const PlaylistModel = function() {
 			if(vidToRemove.info) vdata[vidToMerge].merged.push(vidToRemove.info)
 			if(vidToRemove.merged) vdata[vidToMerge].merged.push(...vidToRemove.merged)
 		}
-		// Replace occurence in history with vidToMerge
-		history.splice(history.indexOf(vidToRemove), 1, vidToMerge ? [vidToMerge] : undefined)
+
+		// Remove from history
+		history.splice(history.indexOf(vidToRemove), 1)
 
 		// Remove from vdata
 		delete vdata[vidToRemove]
@@ -159,7 +167,12 @@ const PlaylistModel = function() {
 		let text = []
 		const scores = this.getScores(true)
 		const sortedScores = Object.keys(scores)
-		sortedScores.sort((a, b) => scores[b] - scores[a])
+		// Sort according to history, unplayed videos last
+		sortedScores.sort((a, b) => {
+			const ia = history.indexOf(a)
+			const ib = history.indexOf(b)
+			return ia < 0 ? (ib < 0 ? 0 : 1) : (ib < 0 ? -1 : ia - ib)
+		})
 		for(const vid of sortedScores) {
 			const infodata = this.getInfodata(vid)
 			text.push([vid, Math.round(scores[vid]) || '', infodata.title || '', infodata.duration || ''])

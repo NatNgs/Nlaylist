@@ -141,6 +141,9 @@ async function shiftVids() {
 			MODL.playerRight.stopVideo()
 			MODL.playerLeft.playVideo()
 		}
+	} else {
+		MODL.playerRight.stopVideo()
+		MODL.playerLeft.playVideo()
 	}
 
 	// Find next vid, and put it to the right
