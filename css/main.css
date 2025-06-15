@@ -84,6 +84,27 @@ button {
 	text-align: right;
 }
 .rankingItem .vid {
-	color: gray;
+	color: #666;
 	font-style: italic;
+}
+.rankingItem a {
+	color: #222;
+}
+.rankingItem .vid a {
+	color: #666;
+	font-family: monospace;
+}
+
+/* Display links not with underline, but with superscrit arrow instead */
+a {
+	text-decoration: none;
+}
+a::after {
+	content: ' ⧉';
+	text-decoration: none;
+	font-variant: super;
+	font-size: 75%;
+}
+a:hover {
+	text-decoration: underline;
 }

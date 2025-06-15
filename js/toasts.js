@@ -23,9 +23,9 @@ function toast(message, toastClass, parentDiv) {
 	}, duration)
 
 	// Move all previous toast down by this toast height
-	const boxHeight = box.getBoundingClientRect().height - 10;
+	const boxHeight = box.getBoundingClientRect().height;
 	for(const toast of previousToasts) {
 		const curr = Number.parseInt(toast.style.top || 0)
-		toast.style.top = `${curr + boxHeight}px`
+		toast.style.top = `${curr + boxHeight + 5}px`
 	}
 };

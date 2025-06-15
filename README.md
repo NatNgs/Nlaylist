@@ -42,7 +42,7 @@ Note: No date are stored, only the order of video played
 
 - Use proper HTML meta data
 - add link to https://NatNgs.github.io menu
-- improve CSS (that gray is aweful, and not even talking about the ranking list)
+- improve background color (that gray is aweful) and menu buttons style
 
 ### Combo mode
 When multiple votes on the same side, infer the vote between current right video, and previous left videos
@@ -78,3 +78,22 @@ Few warnings or IDK may be good to be implemented for before the list is long en
 ### Import youtube playlists
 
 To be worked
+
+### Save loaded data in browser cache
+
+Make file load & save optional
+
+### Ranking table: display green & red arrows on rank change
+
+And make rows move with slow animation when score updates (instead or redraw all board), for a dynamic ranking effect
+
+\+ highlight current left & right video; and maybe also previous 1 or 2 played ones to easily find them\
+Reduce size of elements far away in the history (?)
+
+### Scroll down improvement
+
+Add a slow moving animation, maybe red slanted bar below the video currently playing
+
+Then fix current playing marker and buttons to the page:
+  - scrolling should hide only video players, Merge & Delete buttons
+  - header, play indicator, left, =, next and right buttons should always be visible, even when scrolled a lot down to see the ranking

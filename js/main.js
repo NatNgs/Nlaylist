@@ -8,7 +8,7 @@ async function waitUntilTrue(condition) {
 		if(condition()) return true
 		await sleep(i*100)
 	}
-	return false
+	return condition()
 }
 
 // Prepare Youtube Player
@@ -151,9 +151,16 @@ async function shiftVids() {
 	MODL.playerRight.cueVideoById(new_right)
 	await waitUntilTrue(() => MODL.playerRight?.playerInfo?.videoData?.video_id === new_right)
 
+	const autoRm = document.getElementById('autoremove')
 	while(!MODL.playerRight.getVideoData()?.isPlayable) {
-		toast("Failed to play previous video: skipped", 'toast-err', 'rightvid')
-		MODL.markAsUnplayable(new_right)
+		if(autoRm.checked) {
+			toast("Failed to play previous video: removed", 'toast-err', 'rightvid')
+			MODL.removeVideo(new_right)
+		} else {
+			toast("Failed to play previous video: skipped", 'toast-err', 'rightvid')
+			MODL.markAsUnplayable(new_right)
+		}
+
 		new_right = MODL.pickNext()
 		MODL.playerRight.cueVideoById(new_right)
 		await waitUntilTrue(() => MODL.playerRight?.playerInfo?.videoData?.video_id === new_right)
@@ -189,36 +196,86 @@ function updateRankingDiv() {
 	sortedScores.sort((a, b) => scores[b] - scores[a])
 
 	rankingDic.innerHTML = '' // Clear ranking
+	let unscored = 0
 	for(const vid of sortedScores) {
 		const score = scores[vid]
+		const id = 'ranking_' + vid
 
-		const div = document.createElement('div')
-		div.classList.add('rankingItem')
+		// Get div by id, or create new one if none found
+		let div = document.getElementById(id)
+		let scoreCell, titleCell
+		if(!div) {
+ 			div = document.createElement('div')
+			div.id = id
+			div.classList.add('rankingItem')
 
-		const scoreCell = document.createElement('div')
+			scoreCell = document.createElement('div')
+			scoreCell.classList.add('score')
+			div.appendChild(scoreCell)
+
+			titleCell = document.createElement('div')
+			titleCell.classList.add('title')
+			div.appendChild(titleCell)
+		} else {
+			scoreCell = div.querySelector('.score')
+			titleCell = div.querySelector('.title')
+		}
 		scoreCell.innerText = (Math.round(100*scoreToProba(score, 0)) + '%').padStart(3, ' ')
-		scoreCell.classList.add('score')
-		div.appendChild(scoreCell)
 
-		const titleCell = document.createElement('div')
 		const infodata = MODL.getInfodata(vid)
 		if(infodata.title) {
-			titleCell.innerText = infodata.title
+			titleCell.innerHTML = `<a href="https://www.youtube.com/watch?v=${vid}" target="_blank" rel="noopener noreferrer">${infodata.title}</a>`
+			titleCell.classList.remove('vid')
 		} else {
-			continue // Skip if no title
-			titleCell.innerText = vid
+			if(score == 0) {
+				unscored += 1
+				continue // Skip if no title & score == 0
+			}
+			titleCell.innerHTML = `Unknown video: <a href="https://www.youtube.com/watch?v=${vid}" target="_blank" rel="noopener noreferrer">yt:${vid}</a>` // Show vid
 			titleCell.classList.add('vid')
 		}
-		div.appendChild(titleCell)
 
 		rankingDic.appendChild(div)
+	}
+
+	// Find and remove rankingItem divs that are not in sortedScore (neither ranking_unranked)
+	for(const div of rankingDic.querySelectorAll('.rankingItem')) {
+		const did = div.id.replace('ranking_','')
+		if(did !== 'unranked' && !sortedScores.includes(did)) {
+			rankingDic.removeChild(div)
+		}
+	}
+
+	// Add a single row for all videos never played
+	if(unscored > 0) {
+		let div = document.getElementById('ranking_unranked')
+		let titleCell
+		if(!div) {
+			div = document.createElement('div')
+			div.id = 'ranking_unranked'
+			div.classList.add('rankingItem')
+			titleCell = document.createElement('div')
+			titleCell.classList.add('title')
+			div.appendChild(document.createElement('div'))
+			div.appendChild(titleCell)
+		} else {
+			titleCell = div.querySelector('.title')
+		}
+		titleCell.innerText = `(${unscored} videos never played yet)`
+
+		rankingDic.appendChild(div)
+	} else {
+		// Remove ranking_unranked div
+		const div = document.getElementById('ranking_unranked')
+		if(div) {
+			rankingDic.removeChild(div)
+		}
 	}
 }
 
 async function loadPlayers() {
 	await shiftVids()
 	await shiftVids()
-	// Launch left video automatically
 	MODL.playerLeft.playVideo()
 }
 async function skip() {
