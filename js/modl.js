@@ -9,8 +9,9 @@ function scoreToProba(eloA, eloB) {
 const PlaylistModel = function() {
 	const vdata = {} // vid : {score: score, info: {youtube video info}}
 
-	this.playerLeft = null
-	this.playerRight = null
+	// Combo mode
+	const combo = [] // List of previously compared videos by order or comparisons
+	let comboDir = 0 // Any score between two consecutive members of combo array
 
 	this.isReady = function() {
 		return Object.keys(vdata).filter(vid => !unplayable.includes(vid)).length > 3
@@ -59,7 +60,7 @@ const PlaylistModel = function() {
 
 		if(!vids.length) {
 			alert('Not enough playable video left')
-			return
+			return null
 		}
 
 		// Weight them all (weight = scoreToProba(currScore, 0))
@@ -106,12 +107,45 @@ const PlaylistModel = function() {
 	}
 
 	this.applyVote = function(id_a, score, id_b) {
-		const currElo_a = vdata[id_a].score
-		const currElo_b = vdata[id_b].score
+		if(combo.length) {
+			if(combo[0] === id_a && score/comboDir < 0) {
+				combo.reverse().push(id_b)
+			} else if(combo[0] === id_b && score/comboDir < 0) {
+				combo.reverse().push(id_a)
+				id_a,id_b,score = id_b,id_a // reverse references such as combo array ends with [... id_a, id_b]
+				score *= -1
+			} else if(combo[combo.length-1] === id_a && score/comboDir > 0) {
+				combo.push(id_b)
+			} else if(combo[combo.length-1] === id_b && score/comboDir > 0) {
+				combo.push(id_a)
+				id_a,id_b,score = id_b,id_a // reverse references such as combo array ends with [... id_a, id_b]
+				score *= -1
+			} else {
+				combo.length = 0
+			}
+		}
+		if(!combo.length) {
+			combo.push(id_a, id_b)
+		}
+		// --- here, combo array is like [..., id_a, id_b], such as any pair of 2 consecutive elements have been scored in the same direction [a > b > c > ... > id_a > id_b] or [a < b < c < ... < id_a < id_b]
+		comboDir = score // keep track of combo array direction
 
-		const upd = ELO_K * (score - (scoreToProba(currElo_b, currElo_a)-0.5)*2)
-		vdata[id_a].score -= upd
-		vdata[id_b].score += upd
+		const currElo_b = vdata[id_b].score
+		let k = ELO_K
+		let upd_b = 0
+		for(let i=combo.length-2; i>=0; i--) {
+			// Iterate from the end of combo array to the beginning, and apply a vote from id_b to every previous combo members (with diminishing effect on older ones)
+			id_a = combo[i]
+			const currElo_a = vdata[id_a].score
+
+			const upd = k * (score - (scoreToProba(currElo_b, currElo_a)-0.5)*2)
+			vdata[id_a].score -= upd
+			upd_b += upd
+			console.debug(id_a, (-upd).toFixed(2))
+			k *= .9 // Reduce K by 10% for next combo vote to apply
+		}
+		vdata[id_b].score += upd_b
+		console.debug(id_b, upd_b.toFixed(2))
 	}
 
 	this.removeVideo = function(vidToRemove, vidToMerge) {
@@ -140,7 +174,6 @@ const PlaylistModel = function() {
 	}
 
 	this.addFromTSV = function(tsv) {
-		const wasReady = this.isReady()
 		const numberWas = Object.keys(this.getScores()).length
 
 		// Parse text such as every line is "<video url>" or "<video url> <score>". Ignore other lines
@@ -153,10 +186,6 @@ const PlaylistModel = function() {
 			if(parts.length >= 3) {
 				this.setInfodata(vid, parts[2], (parts.length >= 4) ? Number.parseInt(parts[3]) : null)
 			}
-		}
-
-		if(!wasReady && this.isReady()) {
-			loadPlayers()
 		}
 
 		const numberIs = Object.keys(this.getScores()).length

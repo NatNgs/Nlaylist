@@ -23,16 +23,7 @@
 		</div>
 
 		<!-- Players -->
-		<div id="players">
-			<div id="leftvid">
-				<div id="leftPlayer"><!-- video player --></div>
-				<div id="leftInfo" class="vidInfo">Infos for left video</div>
-			</div>
-			<div id="rightvid">
-				<div id="rightPlayer"><!-- video player --></div>
-				<div id="rightInfo" class="vidInfo">Infos for right video</div>
-			</div>
-		</div>
+		<div id="players"></div>
 
 		<!-- Actions -->
 		<div id="actions">
@@ -42,10 +33,10 @@
 			</div>
 			<div id="midactions">
 				<button id="btn_eql" class="btn0" onclick="choice('btn_eql')" title="I do not prefer left or right video">=</button><br/>
-				<button id="btn_skp" class="btns" onclick="skip()" title="Apply vote and show the next video">Next</button><br/>
-				<button id="btn_mrg" onclick="mergeLeft()" title="Both video are the same: Remove the right one, and merge it into the left one">&lt; Merge &lt;</button>
-				<button id="btn_del" onclick="removeRight()" title="Remove the right video from the list">Delete ></button>
-				<button id="btn_mrg" onclick="mergeRight()" title="Both video are the same: Remove the left one, and merge it into the right one">> Merge ></button>
+				<button id="btn_skp" class="skp btns" onclick="skip()" title="Apply vote and show the next video">Next</button><br/>
+				<button id="btn_mrg" class="skp" onclick="mergeLeft()" title="Both video are the same: Remove the right one, and merge it into the left one">&lt; Merge &lt;</button>
+				<button id="btn_del" class="skp" onclick="removeRight()" title="Remove the right video from the list">Delete ></button>
+				<button id="btn_mrg" class="skp" onclick="mergeRight()" title="Both video are the same: Remove the left one, and merge it into the right one">> Merge ></button>
 			</div>
 			<div id="rightactions">
 				<button id="btn_rgt1" class="btn1" onclick="choice('btn_rgt1')" title="I prefer the right video">></button>

@@ -36,14 +36,6 @@ Save file is ordered by the last time a video was played, so that next time file
 
 Note: No date are stored, only the order of video played
 
-## TODO list
-
-### Tab icon & title
-
-- Use proper HTML meta data
-- add link to https://NatNgs.github.io menu
-- improve background color (that gray is aweful) and menu buttons style
-
 ### Combo mode
 When multiple votes on the same side, infer the vote between current right video, and previous left videos
 
@@ -57,6 +49,14 @@ Example:
 - B vs C, C wins => register C > B and also C > A
 - C vs D, D wins => register D > C, D > B, D > A
 - D vs E, D wins => reset combo and register D > E only
+
+## TODO list
+
+### Tab icon & title
+
+- Use proper HTML meta data
+- add link to https://NatNgs.github.io menu
+- improve background color (that gray is aweful) and menu buttons style
   
 ### Rebalance score sum
 After loaded a bunch of items (after the whole group only), compute the sum of all scores.

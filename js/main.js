@@ -12,108 +12,27 @@ async function waitUntilTrue(condition) {
 }
 
 // Prepare Youtube Player
-function onYouTubeIframeAPIReady() {
-	MODL.playerLeft = new YT.Player('leftPlayer', {
-		height: '100%',
-		width: '100%',
-		videoId: '',
-		disablekb: 1,
-		controls: 0,
-		iv_load_policy: 3,
-		events: {
-			'onStateChange': (evt) => {
-				if (evt.data == YT.PlayerState.ENDED) {
-					// Launch righ video automatically after a second
-					setTimeout(()=>MODL.playerRight.playVideo(), 1000)
-				}
-			}
-		}
-	});
-	MODL.playerRight = new YT.Player('rightPlayer', {
-		height: '100%',
-		width: '100%',
-		videoId: '',
-		disablekb: 1,
-		controls: 0,
-		iv_load_policy: 3,
-		events: {
-			'onStateChange': (evt) => {
-				if (evt.data == YT.PlayerState.ENDED) {
-					skip()
-				}
-			}
-		},
-	});
-
-	curtain = document.getElementById('curtain')
-	counterElement = document.getElementById('counter')
-	banner = document.getElementById('banner')
+const PLAYERS = {
+	left: null,
+	right: null,
+	future: null,
 }
 
-
-/**** **** **** **** ACTIONS **** **** **** ****/
-
-function loadFile() {
-	// Prompt for a .tsv file, then load it
-	const input = document.createElement('input')
-	input.type = 'file'
-	input.accept = '.tsv'
-	input.onchange = () => {
-		const file = input.files[0]
-		const reader = new FileReader()
-		reader.onload = () => {
-			const added = MODL.addFromTSV(reader.result)
-			const total = Object.keys(MODL.getScores()).length
-			if(added) {
-				toast(`${added} new videos listed (now ${total} listed)`, 'toast-ok')
-			} else {
-				toast(`No new video listed (${total} listed)`, 'toast-err')
-			}
-		}
-		reader.readAsText(file)
-	}
-	input.click()
-}
-function addFromTextInput() {
-	// Prompt for input text
-	const userInput = prompt('Youtube video ids (11 char length) and/or video url to add (separated by spaces or ",")')
-
-	if(userInput) {
-		const added = MODL.addFromTSV(userInput.split(/[ \n\t,;]+/).join('\n'))
-		const total = Object.keys(MODL.getScores()).length
-		if(added) {
-			toast(`${added} new videos listed (now ${total} listed)`, 'toast-ok')
-		} else {
-			toast(`No new video listed (${total} listed)`, 'toast-err')
+function onYouTubeEventStateChange(evt) {
+	const thisPlayer = evt.target
+	if(evt.data === YT.PlayerState.ENDED) {
+		if(thisPlayer === PLAYERS.left) {
+			PLAYERS.right.playVideo()
+		} else if(thisPlayer === PLAYERS.right) {
+			shiftVids()
 		}
 	}
 }
 
-function saveFile() {
-	// Ask to save text file .tsv with content is "<vid>\t<rounded score>"
-	const blob = new Blob([MODL.exportToTSV()], {type: "text/plain;charset=utf-8"})
-	const url = URL.createObjectURL(blob)
-	const a = document.createElement("a")
-	a.href = url
-	a.download = "Nlaylist.tsv"
-	a.click()
-	URL.revokeObjectURL(url)
-}
 
-function choice(selection) {
-	const lst = [
-		"btn_lft2",
-		"btn_lft1",
-		"btn_eql",
-		"btn_rgt1",
-		"btn_rgt2",
-		"btn_skp",
-	].filter(b => b !== selection)
-	lst.forEach(btn => document.getElementById(btn).classList.remove("selected"))
-	document.getElementById(selection || "btn_skp").classList.add("selected")
-}
+
 function getCurrentChoice() {
-	switch(document.querySelector(".selected").id) {
+	switch(document.querySelector(".selected")?.id) {
 		case "btn_lft2": return -2
 		case "btn_lft1": return -1
 		case "btn_eql": return 0
@@ -123,71 +42,140 @@ function getCurrentChoice() {
 	}
 }
 
-async function shiftVids() {
+let __playerids = 0
+async function initNewPlayer() {
+	const playerId = __playerids++
 
-	// Move right vid to the left
-	const old_right = MODL.playerRight.getVideoData()
-	if(old_right && old_right.video_id) {
-		const wasPlayingRight = (MODL.playerRight.getPlayerState() == YT.PlayerState.PLAYING)
+	const div = document.createElement('div')
+	div.id = 'player_' + playerId
+	const vid = document.createElement('div')
+	vid.id = 'video_' + playerId
+	div.appendChild(vid)
+	const inf = document.createElement('div')
+	inf.classList.add('vidInfo')
+	div.appendChild(inf)
 
-		const old_left = MODL.playerLeft.getVideoData()
-		const currSelection = getCurrentChoice()
-		if(old_left && old_left.video_id && currSelection != null) {
-			MODL.applyVote(old_left.video_id, currSelection, old_right.video_id)
-		}
-		MODL.playerLeft.cueVideoById(old_right.video_id)
+	const parent = document.getElementById('players')
+	parent.appendChild(div)
 
-		if(wasPlayingRight) {
-			MODL.playerRight.stopVideo()
-			MODL.playerLeft.playVideo()
-		}
-	} else {
-		MODL.playerRight.stopVideo()
-		MODL.playerLeft.playVideo()
+	await sleep(100)
+
+	const player = new YT.Player('video_' + playerId, {
+		height: '100%',
+		width: '100%',
+		videoId: '',
+		disablekb: 1,
+		controls: 0,
+		iv_load_policy: 3,
+		events: {
+			'onStateChange': onYouTubeEventStateChange
+		},
+	})
+
+	await waitUntilTrue(() => player.cueVideoById)
+
+	return player
+}
+async function loadNextVideo(player) {
+	const _pickNextToPlayer = async () => {
+		const vid = MODL.pickNext()
+		if(!vid) return vid
+		player.cueVideoById(vid)
+		await waitUntilTrue(() => player?.playerInfo?.videoData?.video_id === vid)
+		return vid
 	}
 
-	// Find next vid, and put it to the right
-	let new_right = MODL.pickNext()
-	MODL.playerRight.cueVideoById(new_right)
-	await waitUntilTrue(() => MODL.playerRight?.playerInfo?.videoData?.video_id === new_right)
+	if(player !== PLAYERS.future) toast("Loading...", '', player.g.parentElement)
+	let vid_id = await _pickNextToPlayer()
 
 	const autoRm = document.getElementById('autoremove')
-	while(!MODL.playerRight.getVideoData()?.isPlayable) {
+	let tries = 1
+	while(vid_id && !player.getVideoData()?.isPlayable) {
+		if(player !== PLAYERS.future) toast(`Loading another one (try ${++tries})...`, '', player.g.parentElement)
 		if(autoRm.checked) {
-			toast("Failed to play previous video: removed", 'toast-err', 'rightvid')
-			MODL.removeVideo(new_right)
+			MODL.removeVideo(vid_id)
 		} else {
-			toast("Failed to play previous video: skipped", 'toast-err', 'rightvid')
-			MODL.markAsUnplayable(new_right)
+			MODL.markAsUnplayable(vid_id)
 		}
 
-		new_right = MODL.pickNext()
-		MODL.playerRight.cueVideoById(new_right)
-		await waitUntilTrue(() => MODL.playerRight?.playerInfo?.videoData?.video_id === new_right)
-	}
-
-	// Set left info content
-	const linfo = document.getElementById('leftInfo')
-	const rinfo = document.getElementById('rightInfo')
-	if(old_right && old_right.video_id) {
-		const currScores = MODL.getScores()
-		const probaLeft = scoreToProba(currScores[old_right.video_id], currScores[new_right])
-		linfo.innerText = `Preference: ${Math.round(100*probaLeft) + '%'} (ELO: ${Math.round(currScores[old_right.video_id])+1000})`
-		rinfo.innerText = `Preference: ${Math.round(100*(1-probaLeft)) + '%'} (ELO: ${Math.round(currScores[new_right])+1000})`
-	} else {
-		linfo.innerText = '-'
-		rinfo.innerText = '-'
+		vid_id = await _pickNextToPlayer()
 	}
 
 	// update MODL info
-	MODL.setInfodata(new_right, MODL.playerRight.getVideoData().title, MODL.playerRight.getDuration())
+	MODL.setInfodata(vid_id, player.getVideoData().title, player.getDuration())
 
-	// Reset choice
-	choice(null)
-
-	// Update ranking div
-	setTimeout(updateRankingDiv)
+	return vid_id
 }
+function applyVote() {
+	const currSelection = getCurrentChoice()
+	const left = PLAYERS.left?.getVideoData()?.video_id
+	const right = PLAYERS.right?.getVideoData()?.video_id
+	if(left && right && currSelection !== null) {
+		MODL.applyVote(left, currSelection, right)
+
+		// Reset choice
+		choice(null)
+
+		// Update ranking div
+		updateRankingDiv()
+	}
+}
+async function shiftVids() {
+	// Prevent all actions that may skip again
+	Array.from(document.getElementsByClassName('skp')).forEach(e => e.disabled = true)
+
+	const playersParentDiv = document.getElementById('players')
+
+	if(PLAYERS.right) {
+		applyVote()
+
+		// Remove left video (will shift left & right automatically)
+		playersParentDiv.removeChild(playersParentDiv.children[0])
+		PLAYERS.left = PLAYERS.right
+		PLAYERS.right = PLAYERS.future
+		PLAYERS.future = null
+	}
+
+	let autoStarted = false
+	if(!PLAYERS.left) {
+		PLAYERS.left = await initNewPlayer(playersParentDiv)
+		PLAYERS.left.g.parentElement.querySelector(".vidInfo").innerText = 'Loading...'
+		await loadNextVideo(PLAYERS.left)
+		PLAYERS.left.playVideo()
+		autoStarted = true
+	}
+
+	// Update left video info
+	const currScores = MODL.getScores()
+	const linfo = PLAYERS.left.g.parentElement.querySelector(".vidInfo")
+	const leftId = PLAYERS.left.getVideoData().video_id
+	linfo.innerText = `Preference: (Loading...) (ELO: ${Math.round(currScores[leftId])+1000})`
+
+	if(!PLAYERS.right) {
+		PLAYERS.right = await initNewPlayer()
+		PLAYERS.right.g.parentElement.querySelector(".vidInfo").innerText = 'Loading...'
+		await loadNextVideo(PLAYERS.right)
+	}
+
+	// Update video info
+	const rightId = PLAYERS.right.getVideoData().video_id
+	const rinfo = PLAYERS.right.g.parentElement.querySelector(".vidInfo")
+	const probaLeft = scoreToProba(currScores[leftId]||0, currScores[rightId]||0)
+	linfo.innerText = `Preference: ${Math.round(100*probaLeft) + '%'} (ELO: ${Math.round(currScores[leftId])+1000})`
+	rinfo.innerText = `Preference: ${Math.round(100*(1-probaLeft)) + '%'} (ELO: ${Math.round(currScores[rightId])+1000})`
+
+	if(!autoStarted && PLAYERS.left.getPlayerState() !== YT.PlayerState.PLAYING) {
+		PLAYERS.right.playVideo()
+	}
+
+	// Re-enable buttons that skip
+	Array.from(document.getElementsByClassName('skp')).forEach(e => e.disabled = false)
+
+	// Preload next video
+	PLAYERS.future = await initNewPlayer()
+	await loadNextVideo(PLAYERS.future, !autoStarted)
+}
+
 
 function updateRankingDiv() {
 	const rankingDic = document.getElementById('ranking')
@@ -273,41 +261,109 @@ function updateRankingDiv() {
 	}
 }
 
-async function loadPlayers() {
-	await shiftVids()
-	await shiftVids()
-	MODL.playerLeft.playVideo()
+
+
+/* ** *** **** ***** ******* ***** **** *** ** */
+/**** **** **** **** ACTIONS **** **** **** ****/
+
+function loadFile() {
+	// Prompt for a .tsv file, then load it
+	const input = document.createElement('input')
+	input.type = 'file'
+	input.accept = '.tsv'
+	input.onchange = () => {
+		const file = input.files[0]
+		const reader = new FileReader()
+		reader.onload = () => {
+			const wasReady = MODL.isReady()
+			const added = MODL.addFromTSV(reader.result)
+			const total = Object.keys(MODL.getScores()).length
+			if(added) {
+				toast(`${added} new videos listed (total: ${total})`, 'toast-ok')
+			} else {
+				toast(`No new video listed (total: ${total})`, 'toast-err')
+			}
+			if(!wasReady && MODL.isReady) {
+				shiftVids()
+			}
+		}
+		reader.readAsText(file)
+	}
+	input.click()
 }
-async function skip() {
-	if(MODL.playerLeft.getPlayerState() == YT.PlayerState.PLAYING) {
-		// Left video is playing: launch right video
-		MODL.playerLeft.stopVideo()
-		MODL.playerRight.playVideo()
-	} else {
-		await shiftVids()
-		if(MODL.playerLeft.getPlayerState() !== YT.PlayerState.PLAYING) {
-			MODL.playerRight.playVideo()
+function addFromTextInput() {
+	// Prompt for input text
+	const userInput = prompt('Youtube video ids (11 char length) and/or video url to add (separated by spaces or ",")')
+
+	if(userInput) {
+		const wasReady = MODL.isReady()
+		const added = MODL.addFromTSV(userInput.split(/[ \n\t,;]+/).join('\n'))
+		const total = Object.keys(MODL.getScores()).length
+		if(added) {
+			toast(`${added} new videos listed (now ${total} listed)`, 'toast-ok')
+		} else {
+			toast(`No new video listed (${total} listed)`, 'toast-err')
+		}
+		if(!wasReady && MODL.isReady) {
+			shiftVids()
 		}
 	}
 }
 
+function saveFile() {
+	// Ask to save text file .tsv with content is "<vid>\t<rounded score>"
+	const blob = new Blob([MODL.exportToTSV()], {type: "text/plain;charset=utf-8"})
+	const url = URL.createObjectURL(blob)
+	const a = document.createElement("a")
+	a.href = url
+	a.download = "Nlaylist.tsv"
+	a.click()
+	URL.revokeObjectURL(url)
+}
+
+function choice(selection) {
+	const lst = [
+		"btn_lft2",
+		"btn_lft1",
+		"btn_eql",
+		"btn_rgt1",
+		"btn_rgt2",
+		"btn_skp",
+	].filter(b => b !== selection)
+	lst.forEach(btn => document.getElementById(btn).classList.remove("selected"))
+	document.getElementById(selection || "btn_skp").classList.add("selected")
+}
+
+async function skip() {
+	if(PLAYERS.left.getPlayerState() == YT.PlayerState.PLAYING) {
+		Array.from(document.getElementsByClassName('skp')).forEach(e => e.disabled = true)
+		// Left video is playing: launch right video
+		PLAYERS.left.stopVideo()
+		PLAYERS.right.playVideo()
+		setTimeout(()=>Array.from(document.getElementsByClassName('skp')).forEach(e => e.disabled = false), 1000)
+	} else {
+		// Left video isn'nt playing: do shift
+		shiftVids()
+	}
+}
 async function mergeRight() {
 	choice(null)
-	MODL.removeVideo(MODL.playerLeft.getVideoData().video_id, MODL.playerRight.getVideoData().video_id)
+	MODL.removeVideo(PLAYERS.left.getVideoData().video_id, PLAYERS.right.getVideoData().video_id)
 	await shiftVids()
-	MODL.playerRight.playVideo()
 }
+
+// TODO: fix functions below
 async function mergeLeft() {
 	choice(null)
-	MODL.removeVideo(MODL.playerRight.getVideoData().video_id, MODL.playerLeft.getVideoData().video_id)
-	MODL.playerRight.cueVideoById(MODL.playerLeft.getVideoData().video_id)
+	MODL.removeVideo(PLAYERS.right.getVideoData().video_id, PLAYERS.left.getVideoData().video_id)
+	PLAYERS.right.cueVideoById(PLAYERS.left.getVideoData().video_id)
 	await shiftVids()
-	MODL.playerRight.playVideo()
+	PLAYERS.right.playVideo()
 }
 async function removeRight() {
 	choice(null)
-	MODL.removeVideo(MODL.playerRight.getVideoData().video_id)
-	MODL.playerRight.cueVideoById(MODL.playerLeft.getVideoData().video_id)
+	MODL.removeVideo(PLAYERS.right.getVideoData().video_id)
+	PLAYERS.right.cueVideoById(PLAYERS.left.getVideoData().video_id)
 	await shiftVids()
-	MODL.playerRight.playVideo()
+	PLAYERS.right.playVideo()
 }
