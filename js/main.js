@@ -129,16 +129,13 @@ async function loadNextVideo(player) {
 		return vid
 	}
 
-	let vid_id = await _pickNextToPlayer()
-
-	const autoRm = document.getElementById('autoremove')
 	let tries = 1
-	while(vid_id && player.errCode) {
+	while((vid_id = await _pickNextToPlayer()) && player.errCode) {
 		tries++
 		if(player !== PLAYERS.future) {
 			toast(`<span style="font-family:monospace;">yt:${vid_id}</span>: ${player.errMessage}.<br/>Loading another video...`, '', player.g.parentElement, 2000)
 		}
-		if(autoRm.checked || [2, 100, 150].indexOf(player.errCode) >= 0) {
+		if([2, 100, 150].indexOf(player.errCode) >= 0) {
 			if(player === PLAYERS.future) {
 				console.log('Removed yt:' + vid_id + ':', player.errMessage)
 			}
@@ -146,8 +143,6 @@ async function loadNextVideo(player) {
 		} else {
 			MODL.markAsUnplayable(vid_id)
 		}
-
-		vid_id = await _pickNextToPlayer()
 	}
 
 	if(!vid_id) {
@@ -398,13 +393,13 @@ async function skip() {
 	if(PLAYERS.left.getPlayerState() == YT.PlayerState.PLAYING) {
 		Array.from(document.getElementsByClassName('skp')).forEach(e => e.disabled = true)
 		// Left video is playing: launch right video
-		PLAYERS.left.stopVideo()
-		PLAYERS.right.playVideo()
 		setTimeout(()=>Array.from(document.getElementsByClassName('skp')).forEach(e => e.disabled = false), 1000)
 	} else {
 		// Left video isn'nt playing: do shift
 		shiftVids()
 	}
+	PLAYERS.left.stopVideo()
+	PLAYERS.right.playVideo()
 }
 
 
