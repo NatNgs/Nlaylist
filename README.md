@@ -69,12 +69,6 @@ Split the remaining with weight depending on `scoreToProba(current, 0)`, so that
 
 Currently, app is able to get video titles and to show them, but no solution is found yet to get video channels names.
 
-### Improve begining experience
-
-Current works depends a lot on having already a somewhat long list of videos loaded
-
-Few warnings or IDK may be good to be implemented for before the list is long enough to play
-
 ### Import youtube playlists
 
 To be worked

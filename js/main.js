@@ -11,6 +11,11 @@ async function waitUntilTrue(condition) {
 	return condition()
 }
 
+async function onPageLoad() {
+	toggleAdvancedControls()
+}
+
+
 // Prepare Youtube Player
 const PLAYERS = {
 	left: null,
@@ -26,6 +31,36 @@ function onYouTubeEventStateChange(evt) {
 		} else if(thisPlayer === PLAYERS.right) {
 			shiftVids()
 		}
+	}
+}
+function onYoutubeErrorEvent(evt) {
+	const thisPlayer = evt.target
+	const errCode = evt.data
+	/**
+	 * errCodes:
+     * 2 – The request contains an invalid parameter value. For example, this error occurs if you specify a video ID that does not have 11 characters, or if the video ID contains invalid characters, such as exclamation points or asterisks.
+     * 5 – The requested content cannot be played in an HTML5 player or another error related to the HTML5 player has occurred.
+     * 100 – The video requested was not found. This error occurs when a video has been removed (for any reason) or has been marked as private.
+     * 101 – The owner of the requested video does not allow it to be played in embedded players.
+     * 150 – same as 101
+	 */
+	thisPlayer.errCode = errCode
+	switch(errCode) {
+		case 2:
+			thisPlayer.errMessage = 'Invalid video id'
+			break
+		case 5:
+			thisPlayer.errMessage = 'Device cannot play this video'
+			break
+		case 100:
+			thisPlayer.errMessage = 'Video not found or removed'
+			break
+		case 101:
+		case 150:
+			thisPlayer.errMessage = 'Video not allowed outside Youtube'
+			break
+		default:
+			thisPlayer.errMessage = 'Unknown error (code:' + errCode + ')'
 	}
 }
 
@@ -60,6 +95,7 @@ async function initNewPlayer() {
 
 	await sleep(100)
 
+	let isReady = false
 	const player = new YT.Player('video_' + playerId, {
 		height: '100%',
 		width: '100%',
@@ -68,31 +104,37 @@ async function initNewPlayer() {
 		controls: 0,
 		iv_load_policy: 3,
 		events: {
-			'onStateChange': onYouTubeEventStateChange
+			'onReady': ()=>isReady=true,
+			'onStateChange': onYouTubeEventStateChange,
+			'onError': onYoutubeErrorEvent,
 		},
 	})
 
-	await waitUntilTrue(() => player.cueVideoById)
+	await waitUntilTrue(() => isReady)
 
 	return player
 }
 async function loadNextVideo(player) {
 	const _pickNextToPlayer = async () => {
+		player.errCode = undefined
+		player.errMessage = undefined
 		const vid = MODL.pickNext()
 		if(!vid) return vid
 		player.cueVideoById(vid)
-		await waitUntilTrue(() => player?.playerInfo?.videoData?.video_id === vid)
+		await waitUntilTrue(() => (player.errCode > 0) || (player?.playerInfo?.videoData?.video_id === vid))
 		return vid
 	}
 
-	if(player !== PLAYERS.future) toast("Loading...", '', player.g.parentElement)
 	let vid_id = await _pickNextToPlayer()
 
 	const autoRm = document.getElementById('autoremove')
 	let tries = 1
 	while(vid_id && !player.getVideoData()?.isPlayable) {
-		if(player !== PLAYERS.future) toast(`Loading another one (try ${++tries})...`, '', player.g.parentElement)
-		if(autoRm.checked) {
+		tries++
+		if(player !== PLAYERS.future) {
+			toast(`<span style="font-family:monospace;">yt:${vid_id}</span>: ${player.errMessage || 'Loading timeout'}.<br/>Loading another video...`, '', player.g.parentElement, 2000)
+		}
+		if(autoRm.checked || [2, 100, 150].indexOf(player?.errCode) >= 0) {
 			MODL.removeVideo(vid_id)
 		} else {
 			MODL.markAsUnplayable(vid_id)
@@ -101,9 +143,18 @@ async function loadNextVideo(player) {
 		vid_id = await _pickNextToPlayer()
 	}
 
+	if(!vid_id) {
+		toast('No more available video to be loaded', 'toast-err', player !== PLAYERS.future ? player.g.parentElement : null)
+		return null
+	}
+
+	if(tries > 1 && player !== PLAYERS.future) {
+		// Defer toast by 1/2s for UX reasons, after previous "failed to load" displayed toasts
+		setTimeout(()=>toast(`<span style="font-family:monospace;">yt:${vid_id}</span> successfuly loaded`, 'toast-ok', player.g.parentElement, 2000), 500)
+	}
+
 	// update MODL info
 	MODL.setInfodata(vid_id, player.getVideoData().title, player.getDuration())
-
 	return vid_id
 }
 function applyVote() {
@@ -120,7 +171,7 @@ function applyVote() {
 		updateRankingDiv()
 	}
 }
-async function shiftVids() {
+async function shiftVids(shiftRightVid=false) {
 	// Prevent all actions that may skip again
 	Array.from(document.getElementsByClassName('skp')).forEach(e => e.disabled = true)
 
@@ -130,8 +181,8 @@ async function shiftVids() {
 		applyVote()
 
 		// Remove left video (will shift left & right automatically)
-		playersParentDiv.removeChild(playersParentDiv.children[0])
-		PLAYERS.left = PLAYERS.right
+		playersParentDiv.removeChild(playersParentDiv.children[shiftRightVid ? 1 : 0])
+		if(!shiftRightVid) PLAYERS.left = PLAYERS.right
 		PLAYERS.right = PLAYERS.future
 		PLAYERS.future = null
 	}
@@ -286,6 +337,7 @@ function loadFile() {
 			if(!wasReady && MODL.isReady) {
 				shiftVids()
 			}
+			updateRankingDiv()
 		}
 		reader.readAsText(file)
 	}
@@ -307,6 +359,7 @@ function addFromTextInput() {
 		if(!wasReady && MODL.isReady) {
 			shiftVids()
 		}
+		updateRankingDiv()
 	}
 }
 
@@ -346,6 +399,13 @@ async function skip() {
 		shiftVids()
 	}
 }
+
+
+function toggleAdvancedControls() {
+	const enabled = document.getElementById('chkb_advctrls').checked
+	document.getElementById('advanced').style.display = (enabled ? 'block' : 'none')
+}
+
 async function mergeRight() {
 	choice(null)
 	MODL.removeVideo(PLAYERS.left.getVideoData().video_id, PLAYERS.right.getVideoData().video_id)
@@ -357,13 +417,11 @@ async function mergeLeft() {
 	choice(null)
 	MODL.removeVideo(PLAYERS.right.getVideoData().video_id, PLAYERS.left.getVideoData().video_id)
 	PLAYERS.right.cueVideoById(PLAYERS.left.getVideoData().video_id)
-	await shiftVids()
-	PLAYERS.right.playVideo()
+	await shiftVids(true)
 }
 async function removeRight() {
 	choice(null)
 	MODL.removeVideo(PLAYERS.right.getVideoData().video_id)
 	PLAYERS.right.cueVideoById(PLAYERS.left.getVideoData().video_id)
-	await shiftVids()
-	PLAYERS.right.playVideo()
+	await shiftVids(true)
 }

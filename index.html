@@ -13,13 +13,15 @@
 		<script src="js/main.js"></script>
 		<script src="js/toasts.js" async></script>
 	</head>
-	<body>
+	<body onload="onPageLoad()">
 		<!-- Menu -->
 		<div id="menu">
 			<button onclick="loadFile()">Load from file</button>
 			<button onclick="saveFile()">Save to file</button>
 			<button onclick="addFromTextInput()">Add videos</button>
 			<span><input type="checkbox" id="autoremove"/><label for="autoremove">Auto-remove on error</label></span>
+			|
+			<span><input type="checkbox" id="chkb_advctrls" onchange="toggleAdvancedControls()"/><label for="chkb_advctrls">Advanced controls</label></span>
 		</div>
 
 		<!-- Players -->
@@ -34,9 +36,11 @@
 			<div id="midactions">
 				<button id="btn_eql" class="btn0" onclick="choice('btn_eql')" title="I do not prefer left or right video">=</button><br/>
 				<button id="btn_skp" class="skp btns" onclick="skip()" title="Apply vote and show the next video">Next</button><br/>
-				<button id="btn_mrg" class="skp" onclick="mergeLeft()" title="Both video are the same: Remove the right one, and merge it into the left one">&lt; Merge &lt;</button>
-				<button id="btn_del" class="skp" onclick="removeRight()" title="Remove the right video from the list">Delete ></button>
-				<button id="btn_mrg" class="skp" onclick="mergeRight()" title="Both video are the same: Remove the left one, and merge it into the right one">> Merge ></button>
+				<div id="advanced">
+					<button id="btn_mrg" class="skp" onclick="mergeLeft()" title="Both video are the same: Remove the right one, and merge it into the left one">&lt; Merge &lt;</button>
+					<button id="btn_del" class="skp" onclick="removeRight()" title="Remove the right video from the list">Delete ></button>
+					<button id="btn_mrg" class="skp" onclick="mergeRight()" title="Both video are the same: Remove the left one, and merge it into the right one">> Merge ></button>
+				</div>
 			</div>
 			<div id="rightactions">
 				<button id="btn_rgt1" class="btn1" onclick="choice('btn_rgt1')" title="I prefer the right video">></button>

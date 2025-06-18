@@ -17,7 +17,7 @@ body {
 /* PLAYERS */
 #players {
 	display: grid;
-	grid-template-columns: auto auto 0;
+	grid-template-columns: 50% 50% 0;
 	margin-right: 1em;
 }
 #players > * {
@@ -97,6 +97,7 @@ button:hover {
 	grid-template-columns: 3em auto;
 	grid-column-gap: 0.125em;
 	margin: 0.25em;
+	margin-right: 1.25em;
 }
 .rankingItem > * {
 	background-color: #AAA;

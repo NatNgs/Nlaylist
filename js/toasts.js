@@ -1,4 +1,4 @@
-function toast(message, toastClass, parentDiv) {
+function toast(message, toastClass, parentDiv, duration=null) {
 	if(!parentDiv || (typeof parentDiv === "string"))
 		parentDiv = document.getElementById(parentDiv) || document.body
 	let previousToasts = parentDiv.querySelectorAll(".toast")
@@ -12,7 +12,8 @@ function toast(message, toastClass, parentDiv) {
 	</div>`;
 	parentDiv.prepend(box)
 
-	const duration = message.length * 200 + (500*previousToasts?.length||0)
+	if(!duration)
+		duration = message.length * 150 + (500*previousToasts?.length||0)
 
 	// Close the toast after duration
 	box.querySelector(".toast-progress").style.animationDuration = `${duration}ms`

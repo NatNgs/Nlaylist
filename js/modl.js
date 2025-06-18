@@ -195,13 +195,19 @@ const PlaylistModel = function() {
 		// export MODL data as text as "<vid>\t<rounded score>"
 		let text = []
 		const scores = this.getScores(true)
-		const sortedScores = Object.keys(scores)
-		// Sort according to history, unplayed videos last
+		const sortedScores = Object.keys(scores).filter(vid => !unplayable.includes(vid))
+
+		// Sort according to history
 		sortedScores.sort((a, b) => {
 			const ia = history.indexOf(a)
 			const ib = history.indexOf(b)
 			return ia < 0 ? (ib < 0 ? 0 : 1) : (ib < 0 ? -1 : ia - ib)
 		})
+
+		// Insert unplayable videos in the middle of sortedScores
+		sortedScores.splice((sortedScores.length/2) |0, 0, ...unplayable)
+
+		// Extract scores
 		for(const vid of sortedScores) {
 			const infodata = this.getInfodata(vid)
 			text.push([vid, Math.round(scores[vid]) || '', infodata.title || '', infodata.duration || ''])
