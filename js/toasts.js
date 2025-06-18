@@ -29,4 +29,6 @@ function toast(message, toastClass, parentDiv, duration=null) {
 		const curr = Number.parseInt(toast.style.top || 0)
 		toast.style.top = `${curr + increase}px`
 	}
+
+	console.log(box.innerText)
 }

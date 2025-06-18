@@ -122,6 +122,10 @@ async function loadNextVideo(player) {
 		if(!vid) return vid
 		player.cueVideoById(vid)
 		await waitUntilTrue(() => (player.errCode > 0) || (player?.playerInfo?.videoData?.video_id === vid))
+		if(!player.errCode && player?.playerInfo?.videoData?.video_id !== vid) {
+			player.errCode = 0
+			player.errMessage = 'Loading timeout'
+		}
 		return vid
 	}
 
@@ -129,12 +133,15 @@ async function loadNextVideo(player) {
 
 	const autoRm = document.getElementById('autoremove')
 	let tries = 1
-	while(vid_id && !player.getVideoData()?.isPlayable) {
+	while(vid_id && player.errCode) {
 		tries++
 		if(player !== PLAYERS.future) {
-			toast(`<span style="font-family:monospace;">yt:${vid_id}</span>: ${player.errMessage || 'Loading timeout'}.<br/>Loading another video...`, '', player.g.parentElement, 2000)
+			toast(`<span style="font-family:monospace;">yt:${vid_id}</span>: ${player.errMessage}.<br/>Loading another video...`, '', player.g.parentElement, 2000)
 		}
-		if(autoRm.checked || [2, 100, 150].indexOf(player?.errCode) >= 0) {
+		if(autoRm.checked || [2, 100, 150].indexOf(player.errCode) >= 0) {
+			if(player === PLAYERS.future) {
+				console.log('Removed yt:' + vid_id + ':', player.errMessage)
+			}
 			MODL.removeVideo(vid_id)
 		} else {
 			MODL.markAsUnplayable(vid_id)
