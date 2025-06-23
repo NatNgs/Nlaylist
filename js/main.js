@@ -121,8 +121,7 @@ async function loadNextVideo(player) {
 		const vid = MODL.pickNext()
 		if(!vid) return vid
 		player.cueVideoById(vid)
-		await waitUntilTrue(() => (player.errCode > 0) || (player?.playerInfo?.videoData?.video_id === vid))
-		if(!player.errCode && player?.playerInfo?.videoData?.video_id !== vid) {
+		if(!await waitUntilTrue(() => (player.errCode > 0) || (player?.playerInfo?.videoData?.video_id === vid))) {
 			player.errCode = 0
 			player.errMessage = 'Loading timeout'
 		}
@@ -133,11 +132,11 @@ async function loadNextVideo(player) {
 	while((vid_id = await _pickNextToPlayer()) && player.errCode) {
 		tries++
 		if(player !== PLAYERS.future) {
-			toast(`<span style="font-family:monospace;">yt:${vid_id}</span>: ${player.errMessage}.<br/>Loading another video...`, '', player.g.parentElement, 2000)
+			toast(`<span style="font-family:monospace;">yt:${vid_id}</span> removed: ${player.errMessage}.<br/>Loading another video...`, '', player.g.parentElement, 2000)
 		}
 		if([2, 100, 150].indexOf(player.errCode) >= 0) {
 			if(player === PLAYERS.future) {
-				console.log('Removed yt:' + vid_id + ':', player.errMessage)
+				toast(`<span style="font-family:monospace;">yt:${vid_id}</span> removed: ${player.errMessage}`, '', null, 2000)
 			}
 			MODL.removeVideo(vid_id)
 		} else {
@@ -184,6 +183,7 @@ async function shiftVids(shiftRightVid=false) {
 
 		// Remove left video (will shift left & right automatically)
 		playersParentDiv.removeChild(playersParentDiv.children[shiftRightVid ? 1 : 0])
+		PLAYERS.left.destroy()
 		if(!shiftRightVid) PLAYERS.left = PLAYERS.right
 		PLAYERS.right = PLAYERS.future
 		PLAYERS.future = null
@@ -408,22 +408,18 @@ function toggleAdvancedControls() {
 	document.getElementById('advanced').style.display = (enabled ? 'block' : 'none')
 }
 
-async function mergeRight() {
+function mergeRight() {
 	choice(null)
 	MODL.removeVideo(PLAYERS.left.getVideoData().video_id, PLAYERS.right.getVideoData().video_id)
-	await shiftVids()
+	shiftVids(false)
 }
-
-// TODO: fix functions below
-async function mergeLeft() {
+function mergeLeft() {
 	choice(null)
 	MODL.removeVideo(PLAYERS.right.getVideoData().video_id, PLAYERS.left.getVideoData().video_id)
-	PLAYERS.right.cueVideoById(PLAYERS.left.getVideoData().video_id)
-	await shiftVids(true)
+	shiftVids(true)
 }
-async function removeRight() {
+function removeRight() {
 	choice(null)
 	MODL.removeVideo(PLAYERS.right.getVideoData().video_id)
-	PLAYERS.right.cueVideoById(PLAYERS.left.getVideoData().video_id)
-	await shiftVids(true)
+	shiftVids(true)
 }
