@@ -183,8 +183,10 @@ async function shiftVids(shiftRightVid=false) {
 
 		// Remove left video (will shift left & right automatically)
 		playersParentDiv.removeChild(playersParentDiv.children[shiftRightVid ? 1 : 0])
-		PLAYERS.left.destroy()
-		if(!shiftRightVid) PLAYERS.left = PLAYERS.right
+		if(!shiftRightVid) {
+			PLAYERS.left.destroy()
+			PLAYERS.left = PLAYERS.right
+		}
 		PLAYERS.right = PLAYERS.future
 		PLAYERS.future = null
 	}
