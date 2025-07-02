@@ -50,12 +50,15 @@ Example:
 - C vs D, D wins => register D > C, D > B, D > A
 - D vs E, D wins => reset combo and register D > E only
 
-
 ### Save loaded data in browser cache
 
 Data is stored in local storage to be persistent from session to session.
 
 Save & Load to file are still available and recommended
+
+### Ranking table: display green & red arrows on rank change
+
+Display green or red arrow next to video score, showing how its score changed since last time it was compared
 
 ## TODO list
 
@@ -87,13 +90,6 @@ May be fun to have an option to group ranking by channels (maybe display min, ma
 ### Import youtube playlists
 
 Work to be done
-
-### Ranking table: display green & red arrows on rank change
-
-And make rows move with slow animation when score updates (instead or redraw all board), for a dynamic ranking effect
-
-\+ highlight current left & right video; and maybe also previous 1 or 2 played ones to easily find them\
-Reduce size of elements far away in the history (?)
 
 ### Scroll down improvement
 

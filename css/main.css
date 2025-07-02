@@ -120,6 +120,7 @@ button:hover {
 .rankingItem .upd {
 	color: gray;
 	text-align: center;
+	background-color: transparent;
 }
 .rankingItem .upd.green {
 	color: #2D3;
@@ -128,6 +129,9 @@ button:hover {
 .rankingItem .upd.red {
 	color: #F64;
 	background: #933;
+}
+.rankingItem.displayed > div {
+	background: #FF8;
 }
 #ranking_unranked .title {
 	grid-column-start: 3;

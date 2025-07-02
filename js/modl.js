@@ -8,7 +8,7 @@ function scoreToProba(eloA, eloB) {
 // Model
 class PlaylistModel {
 	#vdata // vid : {score: <score>, lastScore: <score>, info: {youtube video info}}
-	#history // [vid, vid, ...]
+	history // [vid, vid, ...]
 	#unplayable // [vid, vid, ...]
 	#combo // [vid, vid, ...]
 	#comboDir // -1, 0, 1
@@ -21,9 +21,9 @@ class PlaylistModel {
 		}
 
 		try {
-			this.#history = JSON.parse(localStorage['history'])
+			this.history = JSON.parse(localStorage['history'])
 		} catch(e) {
-			this.#history = []
+			this.history = []
 		}
 
 		this.#unplayable = [] // No store in localStorage
@@ -35,7 +35,7 @@ class PlaylistModel {
 
 	async updateLocalStorage() {
 		localStorage['vdata'] = JSON.stringify(this.#vdata)
-		localStorage['history'] = JSON.stringify(this.#history)
+		localStorage['history'] = JSON.stringify(this.history)
 	}
 
 	isReady() {
@@ -69,7 +69,7 @@ class PlaylistModel {
 		this.#vdata[vid] = {score: score, lastScore: score}
 
 		// Add last to history if not yet in it
-		if(!this.#history.includes(vid)) this.#history.push(vid)
+		if(!this.history.includes(vid)) this.history.push(vid)
 
 		this.updateLocalStorage()
 	}
@@ -80,7 +80,7 @@ class PlaylistModel {
 			.filter(vid => !this.#unplayable.includes(vid))
 
 		vids = vids.filter(vid => {
-			const i = this.#history.indexOf(vid)
+			const i = this.history.indexOf(vid)
 			return i === -1 || i > vids.length/2
 	 	})
 
@@ -109,8 +109,8 @@ class PlaylistModel {
 		}
 
 		// History: move vid to the front of the list
-		this.#history.splice(this.#history.indexOf(vid), 1)
-		this.#history.unshift(vid)
+		this.history.splice(this.history.indexOf(vid), 1)
+		this.history.unshift(vid)
 
 		// Reset lastScore
 		this.#vdata[vid].lastScore = this.#vdata[vid].score
@@ -121,7 +121,7 @@ class PlaylistModel {
 	markAsUnplayable(vid) {
 		this.#unplayable.push(vid)
 		// remove vid from history
-		this.#history.splice(this.#history.indexOf(vid), 1)
+		this.history.splice(this.history.indexOf(vid), 1)
 
 		console.log(vid, 'was not able to be played -- Remaining videos:', Object.keys(this.#vdata).filter(vid => !this.#unplayable.includes(vid)).length)
 	}
@@ -194,7 +194,7 @@ class PlaylistModel {
 		}
 
 		// Remove from history
-		this.#history.splice(this.#history.indexOf(vidToRemove), 1)
+		this.history.splice(this.history.indexOf(vidToRemove), 1)
 
 		// Remove from vdata
 		delete this.#vdata[vidToRemove]
@@ -209,10 +209,6 @@ class PlaylistModel {
 	}
 	getInfodata(vid) {
 		return this.#vdata[vid].info || {}
-	}
-
-	getHistoryIndex(vid) {
-		return this.#history.indexOf(vid)
 	}
 
 	addFromTSV(tsv) {
@@ -241,8 +237,8 @@ class PlaylistModel {
 
 		// Sort according to history
 		sortedScores.sort((a, b) => {
-			const ia = this.#history.indexOf(a)
-			const ib = this.#history.indexOf(b)
+			const ia = this.history.indexOf(a)
+			const ib = this.history.indexOf(b)
 			return ia < 0 ? (ib < 0 ? 0 : 1) : (ib < 0 ? -1 : ia - ib)
 		})
 
@@ -260,7 +256,7 @@ class PlaylistModel {
 	reset() {
 		this.#vdata = {}
 		this.#unplayable.length = 0
-		this.#history.length = 0
+		this.history.length = 0
 		this.#combo.length = 0
 		this.#comboDir = 0
 	}

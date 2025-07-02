@@ -203,6 +203,7 @@ async function shiftVids(shiftRightVid=false) {
 		PLAYERS.left = await initNewPlayer(playersParentDiv)
 		PLAYERS.left.g.parentElement.querySelector(".vidInfo").innerText = 'Loading...'
 		await loadNextVideo(PLAYERS.left)
+		updateRankingDiv()
 		PLAYERS.left.playVideo()
 		autoStarted = true
 	}
@@ -217,6 +218,7 @@ async function shiftVids(shiftRightVid=false) {
 		PLAYERS.right = await initNewPlayer()
 		PLAYERS.right.g.parentElement.querySelector(".vidInfo").innerText = 'Loading...'
 		await loadNextVideo(PLAYERS.right)
+		updateRankingDiv()
 	}
 
 	// Update video info
@@ -235,7 +237,8 @@ async function shiftVids(shiftRightVid=false) {
 
 	// Preload next video
 	PLAYERS.future = await initNewPlayer()
-	await loadNextVideo(PLAYERS.future, !autoStarted)
+	loadNextVideo(PLAYERS.future, !autoStarted)
+
 }
 
 
@@ -244,6 +247,7 @@ function updateRankingDiv() {
 	const scores = MODL.getScores()
 	const lastScores = MODL.getLastScores()
 	const sortedScores = Object.keys(scores)
+
 	sortedScores.sort((a, b) => scores[b] - scores[a])
 
 	rankingDic.innerHTML = '' // Clear ranking
@@ -285,14 +289,15 @@ function updateRankingDiv() {
 		// Green up arrow if lastScore < score, Red down arrow if lastScore > score, gray dash else
 		const scoreDiff = Math.round(currPct - lastPct)
 		if(scoreDiff === 0) {
-			updCell.innerText = "-"
+			updCell.innerText = ''
 		} else if(scoreDiff < 0) {
-			updCell.innerHTML = "▼ " + ('-' + (-scoreDiff)).padStart(3, ' ').replaceAll(/ /g, '&nbsp;')
+			updCell.innerHTML = '▼ ' + ('-' + (-scoreDiff)).padStart(3, ' ').replaceAll(/ /g, '&nbsp;')
 			updCell.classList.add('red')
 		} else {
-			updCell.innerHTML = "▲ " + ('+' + scoreDiff).padStart(3, ' ').replaceAll(/ /g, '&nbsp;')
+			updCell.innerHTML = '▲ ' + ('+' + scoreDiff).padStart(3, ' ').replaceAll(/ /g, '&nbsp;')
 			updCell.classList.add('green')
 		}
+		updCell.style.opacity = Math.pow(1 - (MODL.history.indexOf(vid) / MODL.history.length), 2)
 
 		const infodata = MODL.getInfodata(vid)
 		if(infodata.title) {
@@ -305,6 +310,17 @@ function updateRankingDiv() {
 			}
 			titleCell.innerHTML = `Unknown video: <a href="https://www.youtube.com/watch?v=${vid}" target="_blank" rel="noopener noreferrer">yt:${vid}</a>` // Show vid
 			titleCell.classList.add('vid')
+		}
+
+		// If vid is left or right: highlight the title
+		if(vid === PLAYERS.left?.getVideoData()?.video_id) {
+			div.classList.add('displayed')
+			updCell.innerText = '<'
+		} else if(vid === PLAYERS.right?.getVideoData()?.video_id) {
+			div.classList.add('displayed')
+			updCell.innerText = '>'
+		} else {
+			div.classList.remove('displayed')
 		}
 
 		rankingDic.appendChild(div)
@@ -343,7 +359,6 @@ function updateRankingDiv() {
 		}
 	}
 }
-
 
 
 /* ** *** **** ***** ******* ***** **** *** ** */
@@ -440,7 +455,6 @@ async function skip() {
 	PLAYERS.left.stopVideo()
 	PLAYERS.right.playVideo()
 }
-
 
 function toggleAdvancedControls() {
 	const enabled = document.getElementById('chkb_advctrls').checked
