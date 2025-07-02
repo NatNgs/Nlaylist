@@ -14,12 +14,11 @@ async function waitUntilTrue(condition) {
 async function onPageLoad() {
 	toggleAdvancedControls()
 
-	setTimeout(()=>{
-		updateRankingDiv()
-		if(MODL.isReady()) {
-			shiftVids()
-		}
-	}, 500)
+	await updateRankingDiv()
+	if(MODL.isReady()) {
+		await shiftVids()
+		toast('Player is ready: Click on the video to start', 'toast-ok', PLAYERS.left.g.parentElement, 7500)
+	}
 }
 
 
@@ -107,9 +106,10 @@ async function initNewPlayer() {
 		height: '100%',
 		width: '100%',
 		videoId: '',
-		disablekb: 1,
-		controls: 0,
-		iv_load_policy: 3,
+		controls: 0, // Hide controls
+		disablekb: 1, // disable keyboard controls
+		iv_load_policy: 3, // Disable video annotations
+		rel: 0, // Do not suggest next video after video ended
 		events: {
 			'onReady': ()=>isReady=true,
 			'onStateChange': onYouTubeEventStateChange,
@@ -196,6 +196,7 @@ async function shiftVids(shiftRightVid=false) {
 		}
 		PLAYERS.right = PLAYERS.future
 		PLAYERS.future = null
+		await updateRankingDiv()
 	}
 
 	let autoStarted = false
@@ -203,9 +204,9 @@ async function shiftVids(shiftRightVid=false) {
 		PLAYERS.left = await initNewPlayer(playersParentDiv)
 		PLAYERS.left.g.parentElement.querySelector(".vidInfo").innerText = 'Loading...'
 		await loadNextVideo(PLAYERS.left)
-		updateRankingDiv()
 		PLAYERS.left.playVideo()
 		autoStarted = true
+		await updateRankingDiv()
 	}
 
 	// Update left video info
@@ -218,7 +219,7 @@ async function shiftVids(shiftRightVid=false) {
 		PLAYERS.right = await initNewPlayer()
 		PLAYERS.right.g.parentElement.querySelector(".vidInfo").innerText = 'Loading...'
 		await loadNextVideo(PLAYERS.right)
-		updateRankingDiv()
+		await updateRankingDiv()
 	}
 
 	// Update video info
@@ -242,7 +243,7 @@ async function shiftVids(shiftRightVid=false) {
 }
 
 
-function updateRankingDiv() {
+async function updateRankingDiv() {
 	const rankingDic = document.getElementById('ranking')
 	const scores = MODL.getScores()
 	const lastScores = MODL.getLastScores()
@@ -286,18 +287,30 @@ function updateRankingDiv() {
 		const currPct = 100*scoreToProba(score, 0)
 		scoreCell.innerHTML = (Math.round(currPct) + '%')
 
-		// Green up arrow if lastScore < score, Red down arrow if lastScore > score, gray dash else
-		const scoreDiff = Math.round(currPct - lastPct)
-		if(scoreDiff === 0) {
-			updCell.innerText = ''
-		} else if(scoreDiff < 0) {
-			updCell.innerHTML = '▼ ' + ('-' + (-scoreDiff)).padStart(3, ' ').replaceAll(/ /g, '&nbsp;')
-			updCell.classList.add('red')
+
+		// If vid is left or right: highlight the title
+		if(vid === PLAYERS.left?.getVideoData()?.video_id) {
+			div.classList.add('displayed')
+			updCell.innerText = '<'
+		} else if(vid === PLAYERS.right?.getVideoData()?.video_id) {
+			div.classList.add('displayed')
+			updCell.innerText = '>'
 		} else {
-			updCell.innerHTML = '▲ ' + ('+' + scoreDiff).padStart(3, ' ').replaceAll(/ /g, '&nbsp;')
-			updCell.classList.add('green')
+			div.classList.remove('displayed')
+
+			// Green up arrow if lastScore < score, Red down arrow if lastScore > score, gray dash else
+			const scoreDiff = Math.round(currPct - lastPct)
+			if(scoreDiff === 0) {
+				updCell.innerText = ''
+			} else if(scoreDiff < 0) {
+				updCell.innerHTML = '▼ ' + ('-' + (-scoreDiff)).padStart(3, ' ').replaceAll(/ /g, '&nbsp;')
+				updCell.classList.add('red')
+			} else {
+				updCell.innerHTML = '▲ ' + ('+' + scoreDiff).padStart(3, ' ').replaceAll(/ /g, '&nbsp;')
+				updCell.classList.add('green')
+			}
+			updCell.style.opacity = Math.pow(1 - (MODL.history.indexOf(vid) / MODL.history.length), 2)
 		}
-		updCell.style.opacity = Math.pow(1 - (MODL.history.indexOf(vid) / MODL.history.length), 2)
 
 		const infodata = MODL.getInfodata(vid)
 		if(infodata.title) {
@@ -312,16 +325,6 @@ function updateRankingDiv() {
 			titleCell.classList.add('vid')
 		}
 
-		// If vid is left or right: highlight the title
-		if(vid === PLAYERS.left?.getVideoData()?.video_id) {
-			div.classList.add('displayed')
-			updCell.innerText = '<'
-		} else if(vid === PLAYERS.right?.getVideoData()?.video_id) {
-			div.classList.add('displayed')
-			updCell.innerText = '>'
-		} else {
-			div.classList.remove('displayed')
-		}
 
 		rankingDic.appendChild(div)
 	}

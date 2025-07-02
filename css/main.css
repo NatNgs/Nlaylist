@@ -102,6 +102,7 @@ button:hover {
 .rankingItem > * {
 	background-color: #AAA;
 	padding: 0.125em;
+	transition: background-color 1s, opacity 1s;
 }
 .rankingItem .score {
 	text-align: right;
@@ -124,14 +125,14 @@ button:hover {
 }
 .rankingItem .upd.green {
 	color: #2D3;
-	background: #474;
+	background-color: #474;
 }
 .rankingItem .upd.red {
 	color: #F64;
-	background: #933;
+	background-color: #933;
 }
 .rankingItem.displayed > div {
-	background: #FF8;
+	background-color: #FF8;
 }
 #ranking_unranked .title {
 	grid-column-start: 3;

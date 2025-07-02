@@ -8,10 +8,10 @@ function scoreToProba(eloA, eloB) {
 // Model
 class PlaylistModel {
 	#vdata // vid : {score: <score>, lastScore: <score>, info: {youtube video info}}
-	history // [vid, vid, ...]
 	#unplayable // [vid, vid, ...]
 	#combo // [vid, vid, ...]
 	#comboDir // -1, 0, 1
+	history // [vid, vid, ...]
 
 	constructor() {
 		try {
@@ -26,9 +26,9 @@ class PlaylistModel {
 			this.history = []
 		}
 
-		this.#unplayable = [] // No store in localStorage
+		this.#unplayable = [] // Not stored in localStorage
 
-		// Combo mode
+		// Combo mode - Not stored in localStorage
 		this.#combo = [] // List of previously compared videos by order or comparisons
 		this.#comboDir = 0 // Any score between two consecutive members of combo array
 	}
