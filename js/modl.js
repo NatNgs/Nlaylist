@@ -6,18 +6,43 @@ function scoreToProba(eloA, eloB) {
 }
 
 // Model
-const PlaylistModel = function() {
-	const vdata = {} // vid : {score: score, info: {youtube video info}}
+class PlaylistModel {
+	#vdata // vid : {score: <score>, lastScore: <score>, info: {youtube video info}}
+	#history // [vid, vid, ...]
+	#unplayable // [vid, vid, ...]
+	#combo // [vid, vid, ...]
+	#comboDir // -1, 0, 1
 
-	// Combo mode
-	const combo = [] // List of previously compared videos by order or comparisons
-	let comboDir = 0 // Any score between two consecutive members of combo array
+	constructor() {
+		try {
+			this.#vdata = JSON.parse(localStorage['vdata'])
+		} catch(e) {
+			this.#vdata = {}
+		}
 
-	this.isReady = function() {
-		return Object.keys(vdata).filter(vid => !unplayable.includes(vid)).length > 3
+		try {
+			this.#history = JSON.parse(localStorage['history'])
+		} catch(e) {
+			this.#history = []
+		}
+
+		this.#unplayable = [] // No store in localStorage
+
+		// Combo mode
+		this.#combo = [] // List of previously compared videos by order or comparisons
+		this.#comboDir = 0 // Any score between two consecutive members of combo array
 	}
 
-	this.addVid = function(url, score) {
+	async updateLocalStorage() {
+		localStorage['vdata'] = JSON.stringify(this.#vdata)
+		localStorage['history'] = JSON.stringify(this.#history)
+	}
+
+	isReady() {
+		return Object.keys(this.#vdata).filter(vid => !this.#unplayable.includes(vid)).length > 3
+	}
+
+	addVid(url, score=0) {
 		/** extract id from url (always 11 char length)
 		 * Possible forms are:
 		 * - http(s)://website.xxx/...?v=<id>&...
@@ -39,22 +64,23 @@ const PlaylistModel = function() {
 			}
 		}
 		if(!vid) return // failed to extract vid
-		if(vdata[vid]) return // vid already in vids: ignore
+		if(this.#vdata[vid]) return // vid already in vids: ignore
 
-		vdata[vid] = {score: score}
+		this.#vdata[vid] = {score: score, lastScore: score}
 
 		// Add last to history if not yet in it
-		if(!history.includes(vid)) history.push(vid)
+		if(!this.#history.includes(vid)) this.#history.push(vid)
+
+		this.updateLocalStorage()
 	}
 
-	const history = []
-	this.pickNext = function() {
+	pickNext() {
 		// Random pick one of vids
-		let vids = Object.keys(vdata)
-			.filter(vid => !unplayable.includes(vid))
+		let vids = Object.keys(this.#vdata)
+			.filter(vid => !this.#unplayable.includes(vid))
 
 		vids = vids.filter(vid => {
-			const i = history.indexOf(vid)
+			const i = this.#history.indexOf(vid)
 			return i === -1 || i > vids.length/2
 	 	})
 
@@ -64,7 +90,7 @@ const PlaylistModel = function() {
 		}
 
 		// Weight them all (weight = scoreToProba(currScore, 0))
-		const weights = vids.map(vid => scoreToProba(vdata[vid].score, 0)**2)
+		const weights = vids.map(vid => scoreToProba(this.#vdata[vid].score, 0)**2)
 
 		// Give oldest video in history a significant weight boost
 		weights[weights.length-1] += 1
@@ -83,97 +109,113 @@ const PlaylistModel = function() {
 		}
 
 		// History: move vid to the front of the list
-		history.splice(history.indexOf(vid), 1)
-		history.unshift(vid)
+		this.#history.splice(this.#history.indexOf(vid), 1)
+		this.#history.unshift(vid)
 
+		// Reset lastScore
+		this.#vdata[vid].lastScore = this.#vdata[vid].score
+		this.updateLocalStorage()
 		return vid
 	}
 
-	const unplayable = []
-	this.markAsUnplayable = function(vid) {
-		unplayable.push(vid)
+	markAsUnplayable(vid) {
+		this.#unplayable.push(vid)
 		// remove vid from history
-		history.splice(history.indexOf(vid), 1)
+		this.#history.splice(this.#history.indexOf(vid), 1)
 
-		console.log(vid, 'was not able to be played -- Remaining videos:', Object.keys(vdata).filter(vid => !unplayable.includes(vid)).length)
+		console.log(vid, 'was not able to be played -- Remaining videos:', Object.keys(this.#vdata).filter(vid => !this.#unplayable.includes(vid)).length)
 	}
-	this.getScores = function(keepUnplayable = false) {
+	getScores(keepUnplayable = false) {
 		const scores = {}
-		for(const vid in vdata) {
-			if(!keepUnplayable && unplayable.includes(vid)) continue
-			scores[vid] = vdata[vid].score
+		for(const vid in this.#vdata) {
+			if(!keepUnplayable && this.#unplayable.includes(vid)) continue
+			scores[vid] = this.#vdata[vid].score
 		}
 		return scores
 	}
+	getLastScores() {
+		const lastScores = {}
+		for(const vid in this.#vdata) {
+			lastScores[vid] = this.#vdata[vid].lastScore
+		}
+		return lastScores
+	}
 
-	this.applyVote = function(id_a, score, id_b) {
-		if(combo.length) {
-			if(combo[0] === id_a && score/comboDir < 0) {
-				combo.reverse().push(id_b)
-			} else if(combo[0] === id_b && score/comboDir < 0) {
-				combo.reverse().push(id_a)
+	applyVote(id_a, score, id_b) {
+		if(this.#combo.length) {
+			if(this.#combo[0] === id_a && score/this.#comboDir < 0) {
+				this.#combo.reverse().push(id_b)
+			} else if(this.#combo[0] === id_b && score/this.#comboDir < 0) {
+				this.#combo.reverse().push(id_a)
 				id_a,id_b,score = id_b,id_a // reverse references such as combo array ends with [... id_a, id_b]
 				score *= -1
-			} else if(combo[combo.length-1] === id_a && score/comboDir > 0) {
-				combo.push(id_b)
-			} else if(combo[combo.length-1] === id_b && score/comboDir > 0) {
-				combo.push(id_a)
+			} else if(this.#combo[this.#combo.length-1] === id_a && score/this.#comboDir > 0) {
+				this.#combo.push(id_b)
+			} else if(this.#combo[this.#combo.length-1] === id_b && score/this.#comboDir > 0) {
+				this.#combo.push(id_a)
 				id_a,id_b,score = id_b,id_a // reverse references such as combo array ends with [... id_a, id_b]
 				score *= -1
 			} else {
-				combo.length = 0
+				this.#combo.length = 0
 			}
 		}
-		if(!combo.length) {
-			combo.push(id_a, id_b)
+		if(!this.#combo.length) {
+			this.#combo.push(id_a, id_b)
 		}
 		// --- here, combo array is like [..., id_a, id_b], such as any pair of 2 consecutive elements have been scored in the same direction [a > b > c > ... > id_a > id_b] or [a < b < c < ... < id_a < id_b]
-		comboDir = score // keep track of combo array direction
+		this.#comboDir = score // keep track of combo array direction
 
-		const currElo_b = vdata[id_b].score
+		const currElo_b = this.#vdata[id_b].score
 		let k = ELO_K
 		let upd_b = 0
-		for(let i=combo.length-2; i>=0; i--) {
+		for(let i=this.#combo.length-2; i>=0; i--) {
 			// Iterate from the end of combo array to the beginning, and apply a vote from id_b to every previous combo members (with diminishing effect on older ones)
-			id_a = combo[i]
-			const currElo_a = vdata[id_a].score
+			id_a = this.#combo[i]
+			const currElo_a = this.#vdata[id_a].score
 
 			const upd = k * (score - (scoreToProba(currElo_b, currElo_a)-0.5)*2)
-			vdata[id_a].score -= upd
+			this.#vdata[id_a].score -= upd
 			upd_b += upd
 			console.debug(id_a, (-upd).toFixed(2))
 			k *= .9 // Reduce K by 10% for next combo vote to apply
 		}
-		vdata[id_b].score += upd_b
+		this.#vdata[id_b].score += upd_b
 		console.debug(id_b, upd_b.toFixed(2))
+		this.updateLocalStorage()
 	}
 
-	this.removeVideo = function(vidToRemove, vidToMerge) {
+	removeVideo(vidToRemove, vidToMerge) {
 		if(vidToMerge) {
 			// Merge vdata
-			vdata[vidToMerge].score += vdata[vidToRemove].score
-			if(!vdata[vidToMerge].merged) vdata[vidToMerge].merged = []
-			if(vidToRemove.info) vdata[vidToMerge].merged.push(vidToRemove.info)
-			if(vidToRemove.merged) vdata[vidToMerge].merged.push(...vidToRemove.merged)
+			this.#vdata[vidToMerge].score += this.#vdata[vidToRemove].score
+			if(!this.#vdata[vidToMerge].merged) this.#vdata[vidToMerge].merged = []
+			if(vidToRemove.info) this.#vdata[vidToMerge].merged.push(vidToRemove.info)
+			if(vidToRemove.merged) this.#vdata[vidToMerge].merged.push(...vidToRemove.merged)
 		}
 
 		// Remove from history
-		history.splice(history.indexOf(vidToRemove), 1)
+		this.#history.splice(this.#history.indexOf(vidToRemove), 1)
 
 		// Remove from vdata
-		delete vdata[vidToRemove]
+		delete this.#vdata[vidToRemove]
+		this.updateLocalStorage()
 	}
 
-	this.setInfodata = function(vid, title, duration) {
-		vdata[vid].info = {video_id: vid}
-		if(title) vdata[vid].info.title = title
-		if(duration) vdata[vid].info.duration = duration
+	setInfodata(vid, title, duration) {
+		this.#vdata[vid].info = {video_id: vid}
+		if(title) this.#vdata[vid].info.title = title
+		if(duration) this.#vdata[vid].info.duration = duration
+		this.updateLocalStorage()
 	}
-	this.getInfodata = function(vid) {
-		return vdata[vid].info || {}
+	getInfodata(vid) {
+		return this.#vdata[vid].info || {}
 	}
 
-	this.addFromTSV = function(tsv) {
+	getHistoryIndex(vid) {
+		return this.#history.indexOf(vid)
+	}
+
+	addFromTSV(tsv) {
 		const numberWas = Object.keys(this.getScores()).length
 
 		// Parse text such as every line is "<video url>" or "<video url> <score>". Ignore other lines
@@ -191,21 +233,21 @@ const PlaylistModel = function() {
 		const numberIs = Object.keys(this.getScores()).length
 		return numberIs - numberWas
 	}
-	this.exportToTSV = function() {
+	exportToTSV() {
 		// export MODL data as text as "<vid>\t<rounded score>"
 		let text = []
 		const scores = this.getScores(true)
-		const sortedScores = Object.keys(scores).filter(vid => !unplayable.includes(vid))
+		const sortedScores = Object.keys(scores).filter(vid => !this.#unplayable.includes(vid))
 
 		// Sort according to history
 		sortedScores.sort((a, b) => {
-			const ia = history.indexOf(a)
-			const ib = history.indexOf(b)
+			const ia = this.#history.indexOf(a)
+			const ib = this.#history.indexOf(b)
 			return ia < 0 ? (ib < 0 ? 0 : 1) : (ib < 0 ? -1 : ia - ib)
 		})
 
 		// Insert unplayable videos in the middle of sortedScores
-		sortedScores.splice((sortedScores.length/2) |0, 0, ...unplayable)
+		sortedScores.splice((sortedScores.length/2) |0, 0, ...this.#unplayable)
 
 		// Extract scores
 		for(const vid of sortedScores) {
@@ -213,6 +255,14 @@ const PlaylistModel = function() {
 			text.push([vid, Math.round(scores[vid]) || '', infodata.title || '', infodata.duration || ''])
 		}
 		return text.map(row => row.join('\t').replace(/[ \t]+$/,'')).join('\n')
+	}
+
+	reset() {
+		this.#vdata = {}
+		this.#unplayable.length = 0
+		this.#history.length = 0
+		this.#combo.length = 0
+		this.#comboDir = 0
 	}
 }
 

@@ -50,6 +50,13 @@ Example:
 - C vs D, D wins => register D > C, D > B, D > A
 - D vs E, D wins => reset combo and register D > E only
 
+
+### Save loaded data in browser cache
+
+Data is stored in local storage to be persistent from session to session.
+
+Save & Load to file are still available and recommended
+
 ## TODO list
 
 ### Tab icon & title
@@ -67,15 +74,19 @@ Split the remaining with weight depending on `scoreToProba(current, 0)`, so that
 
 ### Get channel names
 
-Currently, app is able to get video titles and to show them, but no solution is found yet to get video channels names.
+Currently, app is able to get video titles and to show them.
+
+To get channels titles, video should be started for a few seconds (strange YT iframe behavior).
+
+Need to implement something to gather channel names, display them in ranking, and add them to the save file too
+
+#### Ranking by channel
+
+May be fun to have an option to group ranking by channels (maybe display min, max, and median scores)
 
 ### Import youtube playlists
 
-To be worked
-
-### Save loaded data in browser cache
-
-Make file load & save optional
+Work to be done
 
 ### Ranking table: display green & red arrows on rank change
 

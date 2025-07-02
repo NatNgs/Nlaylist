@@ -94,7 +94,7 @@ button:hover {
 
 .rankingItem {
 	display: grid;
-	grid-template-columns: 3em auto;
+	grid-template-columns: 4em 3em auto;
 	grid-column-gap: 0.125em;
 	margin: 0.25em;
 	margin-right: 1.25em;
@@ -116,6 +116,23 @@ button:hover {
 .rankingItem .vid a {
 	color: #666;
 	font-family: monospace;
+}
+.rankingItem .upd {
+	color: gray;
+	text-align: center;
+}
+.rankingItem .upd.green {
+	color: #2D3;
+	background: #474;
+}
+.rankingItem .upd.red {
+	color: #F64;
+	background: #933;
+}
+#ranking_unranked .title {
+	grid-column-start: 3;
+	color: #444;
+	font-style: italic;
 }
 
 /* Display links not with underline, but with superscrit arrow instead */

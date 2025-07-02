@@ -13,6 +13,13 @@ async function waitUntilTrue(condition) {
 
 async function onPageLoad() {
 	toggleAdvancedControls()
+
+	setTimeout(()=>{
+		updateRankingDiv()
+		if(MODL.isReady()) {
+			shiftVids()
+		}
+	}, 500)
 }
 
 
@@ -235,6 +242,7 @@ async function shiftVids(shiftRightVid=false) {
 function updateRankingDiv() {
 	const rankingDic = document.getElementById('ranking')
 	const scores = MODL.getScores()
+	const lastScores = MODL.getLastScores()
 	const sortedScores = Object.keys(scores)
 	sortedScores.sort((a, b) => scores[b] - scores[a])
 
@@ -246,11 +254,15 @@ function updateRankingDiv() {
 
 		// Get div by id, or create new one if none found
 		let div = document.getElementById(id)
-		let scoreCell, titleCell
+		let updCell, scoreCell, titleCell
 		if(!div) {
  			div = document.createElement('div')
 			div.id = id
 			div.classList.add('rankingItem')
+
+			updCell = document.createElement('div')
+			updCell.classList.add('upd')
+			div.appendChild(updCell)
 
 			scoreCell = document.createElement('div')
 			scoreCell.classList.add('score')
@@ -260,10 +272,27 @@ function updateRankingDiv() {
 			titleCell.classList.add('title')
 			div.appendChild(titleCell)
 		} else {
+			updCell = div.querySelector('.upd')
 			scoreCell = div.querySelector('.score')
 			titleCell = div.querySelector('.title')
 		}
-		scoreCell.innerText = (Math.round(100*scoreToProba(score, 0)) + '%').padStart(3, ' ')
+
+		// Display current score as % chance of win against score 0
+		const lastPct = 100*scoreToProba(lastScores[vid], 0)
+		const currPct = 100*scoreToProba(score, 0)
+		scoreCell.innerHTML = (Math.round(currPct) + '%')
+
+		// Green up arrow if lastScore < score, Red down arrow if lastScore > score, gray dash else
+		const scoreDiff = Math.round(currPct - lastPct)
+		if(scoreDiff === 0) {
+			updCell.innerText = "-"
+		} else if(scoreDiff < 0) {
+			updCell.innerHTML = "▼ " + ('-' + (-scoreDiff)).padStart(3, ' ').replaceAll(/ /g, '&nbsp;')
+			updCell.classList.add('red')
+		} else {
+			updCell.innerHTML = "▲ " + ('+' + scoreDiff).padStart(3, ' ').replaceAll(/ /g, '&nbsp;')
+			updCell.classList.add('green')
+		}
 
 		const infodata = MODL.getInfodata(vid)
 		if(infodata.title) {
@@ -299,7 +328,6 @@ function updateRankingDiv() {
 			div.classList.add('rankingItem')
 			titleCell = document.createElement('div')
 			titleCell.classList.add('title')
-			div.appendChild(document.createElement('div'))
 			div.appendChild(titleCell)
 		} else {
 			titleCell = div.querySelector('.title')
@@ -377,6 +405,15 @@ function saveFile() {
 	a.click()
 	URL.revokeObjectURL(url)
 }
+function resetList() {
+	MODL.reset()
+	const playersParentDiv = document.getElementById('players')
+	playersParentDiv.innerHTML = ''
+	PLAYERS.left = null
+	PLAYERS.right = null
+	PLAYERS.future = null
+	updateRankingDiv()
+}
 
 function choice(selection) {
 	const lst = [
@@ -407,7 +444,11 @@ async function skip() {
 
 function toggleAdvancedControls() {
 	const enabled = document.getElementById('chkb_advctrls').checked
-	document.getElementById('advanced').style.display = (enabled ? 'block' : 'none')
+	const elmts = document.getElementsByClassName('advanced')
+
+	for(const div of Array.from(elmts)) {
+		div.style.display = (enabled ? '' : 'none')
+	}
 }
 
 function mergeRight() {
