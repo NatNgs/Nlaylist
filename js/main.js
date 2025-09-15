@@ -245,16 +245,16 @@ async function shiftVids(shiftRightVid=false) {
 
 async function updateRankingDiv() {
 	const rankingDic = document.getElementById('ranking')
-	const scores = MODL.getScores()
-	const lastScores = MODL.getLastScores()
-	const sortedScores = Object.keys(scores)
+	const allVdata = MODL.vdata
+	const sortedScores = Object.keys(allVdata)
 
-	sortedScores.sort((a, b) => scores[b] - scores[a])
+	sortedScores.sort((a, b) => allVdata[b].score - allVdata[a].score || (b > a ? -1 : 1))
 
 	rankingDic.innerHTML = '' // Clear ranking
 	let unscored = 0
+
 	for(const vid of sortedScores) {
-		const score = scores[vid]
+		const vdata = allVdata[vid]
 		const id = 'ranking_' + vid
 
 		// Get div by id, or create new one if none found
@@ -283,48 +283,44 @@ async function updateRankingDiv() {
 		}
 
 		// Display current score as % chance of win against score 0
-		const lastPct = 100*scoreToProba(lastScores[vid], 0)
-		const currPct = 100*scoreToProba(score, 0)
-		scoreCell.innerHTML = (Math.round(currPct) + '%')
+		const currPct = 100*scoreToProba(vdata.score, 0)
+		scoreCell.innerHTML = (Math.round(currPct) + ' pts')
 
 
 		// If vid is left or right: highlight the title
 		if(vid === PLAYERS.left?.getVideoData()?.video_id) {
 			div.classList.add('displayed')
-			updCell.innerText = '<'
 		} else if(vid === PLAYERS.right?.getVideoData()?.video_id) {
 			div.classList.add('displayed')
-			updCell.innerText = '>'
 		} else {
 			div.classList.remove('displayed')
-
-			// Green up arrow if lastScore < score, Red down arrow if lastScore > score, gray dash else
-			const scoreDiff = Math.round(currPct - lastPct)
-			if(scoreDiff === 0) {
-				updCell.innerText = ''
-			} else if(scoreDiff < 0) {
-				updCell.innerHTML = '▼ ' + ('-' + (-scoreDiff)).padStart(3, ' ').replaceAll(/ /g, '&nbsp;')
-				updCell.classList.add('red')
-			} else {
-				updCell.innerHTML = '▲ ' + ('+' + scoreDiff).padStart(3, ' ').replaceAll(/ /g, '&nbsp;')
-				updCell.classList.add('green')
-			}
-			updCell.style.opacity = Math.pow(1 - (MODL.history.indexOf(vid) / MODL.history.length), 2)
 		}
 
-		const infodata = MODL.getInfodata(vid)
-		if(infodata.title) {
-			titleCell.innerHTML = `<a href="https://www.youtube.com/watch?v=${vid}" target="_blank" rel="noopener noreferrer">${infodata.title}</a>`
+
+		// Compare last score with current score
+		let scoreDiff = Math.round(200*scoreToProba(vdata.score, vdata.lastScore) - 100)
+
+		if(scoreDiff < 0) {
+			updCell.innerHTML = '▼ ' + ('-' + (-scoreDiff)).padStart(3, ' ').replaceAll(/ /g, '&nbsp;') + '%'
+			updCell.classList.add('red')
+		} else if(scoreDiff > 0) {
+			updCell.innerHTML = '▲ ' + ('+' + scoreDiff).padStart(3, ' ').replaceAll(/ /g, '&nbsp;') + '%'
+			updCell.classList.add('green')
+		} else {
+			updCell.innerHTML = ''
+		}
+
+		if(vdata.info && vdata.info.title) {
+			titleCell.innerHTML = `<a href="https://www.youtube.com/watch?v=${vid}" target="_blank" rel="noopener noreferrer">${vdata.info.title}</a>`
 			titleCell.classList.remove('vid')
 		} else {
-			if(score == 0) {
+			if(vdata.score == 0) {
 				unscored += 1
 				continue // Skip if no title & score == 0
 			}
 			titleCell.innerHTML = `Unknown video: <a href="https://www.youtube.com/watch?v=${vid}" target="_blank" rel="noopener noreferrer">yt:${vid}</a>` // Show vid
 			titleCell.classList.add('vid')
 		}
-
 
 		rankingDic.appendChild(div)
 	}

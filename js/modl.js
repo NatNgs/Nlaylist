@@ -7,11 +7,13 @@ function scoreToProba(eloA, eloB) {
 
 // Model
 class PlaylistModel {
-	#vdata // vid : {score: <score>, lastScore: <score>, info: {youtube video info}}
+	#vdata // vid : {score: <score>, lastScore: <lastScore>, info: {youtube video info}}
 	#unplayable // [vid, vid, ...]
 	#combo // [vid, vid, ...]
 	#comboDir // -1, 0, 1
 	history // [vid, vid, ...]
+
+	#isCallingUpdate // timeout ref
 
 	constructor() {
 		try {
@@ -31,6 +33,9 @@ class PlaylistModel {
 		// Combo mode - Not stored in localStorage
 		this.#combo = [] // List of previously compared videos by order or comparisons
 		this.#comboDir = 0 // Any score between two consecutive members of combo array
+
+		this.#isCallingUpdate = false
+		this.#callUpdate()
 	}
 
 	async updateLocalStorage() {
@@ -71,7 +76,17 @@ class PlaylistModel {
 		// Add last to history if not yet in it
 		if(!this.history.includes(vid)) this.history.push(vid)
 
-		this.updateLocalStorage()
+		this.#callUpdate()
+	}
+
+	#callUpdate() {
+		if(this.#isCallingUpdate) {
+			clearTimeout(this.#isCallingUpdate)
+		}
+		this.#isCallingUpdate = setTimeout(() => {
+			this.updateLocalStorage()
+			this.#isCallingUpdate = false
+		}, 100)
 	}
 
 	pickNext() {
@@ -112,7 +127,7 @@ class PlaylistModel {
 		this.history.splice(this.history.indexOf(vid), 1)
 		this.history.unshift(vid)
 
-		// Reset lastScore
+		// Update lastScore
 		this.#vdata[vid].lastScore = this.#vdata[vid].score
 		this.updateLocalStorage()
 		return vid
@@ -133,12 +148,12 @@ class PlaylistModel {
 		}
 		return scores
 	}
-	getLastScores() {
-		const lastScores = {}
-		for(const vid in this.#vdata) {
-			lastScores[vid] = this.#vdata[vid].lastScore
-		}
-		return lastScores
+	get vdata() {
+		const out = {}
+		for(const v in this.#vdata)
+			if(!this.#unplayable.includes(v))
+				out[v] = {score: this.#vdata[v].score, lastScore: this.#vdata[v].lastScore, info: this.#vdata[v].info}
+		return out
 	}
 
 	applyVote(id_a, score, id_b) {
@@ -181,7 +196,8 @@ class PlaylistModel {
 		}
 		this.#vdata[id_b].score += upd_b
 		console.debug(id_b, upd_b.toFixed(2))
-		this.updateLocalStorage()
+
+		this.#callUpdate()
 	}
 
 	removeVideo(vidToRemove, vidToMerge) {
@@ -198,7 +214,8 @@ class PlaylistModel {
 
 		// Remove from vdata
 		delete this.#vdata[vidToRemove]
-		this.updateLocalStorage()
+
+		this.#callUpdate()
 	}
 
 	setInfodata(vid, title, duration) {

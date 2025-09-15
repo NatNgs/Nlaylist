@@ -25,6 +25,9 @@ body {
 	margin: 0.25em;
 	position: relative;
 }
+#players > *:nth-child(n+3) {
+	width: 0;
+}
 .vidInfo {
 	text-align: center;
 }
@@ -94,7 +97,7 @@ button:hover {
 
 .rankingItem {
 	display: grid;
-	grid-template-columns: 4em 3em auto;
+	grid-template-columns: 4em 4em auto;
 	grid-column-gap: 0.125em;
 	margin: 0.25em;
 	margin-right: 1.25em;
