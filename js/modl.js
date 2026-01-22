@@ -89,39 +89,24 @@ class PlaylistModel {
 		}, 100)
 	}
 
-	pickNext() {
-		// Random pick one of vids
+	pickNext(mode=null) {
+
+		// Filter for playable ones
 		let vids = Object.keys(this.#vdata)
 			.filter(vid => !this.#unplayable.includes(vid))
-
+		// Remove last half played
 		vids = vids.filter(vid => {
 			const i = this.history.indexOf(vid)
 			return i === -1 || i > vids.length/2
 	 	})
+
 
 		if(!vids.length) {
 			alert('Not enough playable video left')
 			return null
 		}
 
-		// Weight them all (weight = scoreToProba(currScore, 0))
-		const weights = vids.map(vid => scoreToProba(this.#vdata[vid].score, 0)**2)
-
-		// Give oldest video in history a significant weight boost
-		weights[weights.length-1] += 1
-
-		// Pick one with weighted random
-		const totalWeight = weights.reduce((a, b) => a + b)
-		const rand = Math.random() * totalWeight
-		let currWeight = 0
-		let vid = vids[vids.length-1]
-		for(let i = 0; i < weights.length; i++) {
-			currWeight += weights[i]
-			if(rand < currWeight) {
-				vid = vids[i]
-				break
-			}
-		}
+		const vid = NEXT_PICKERS[mode || 'weighted_random'](vids, this.#vdata, this.history)
 
 		// History: move vid to the front of the list
 		this.history.splice(this.history.indexOf(vid), 1)

@@ -125,7 +125,7 @@ async function loadNextVideo(player) {
 	const _pickNextToPlayer = async () => {
 		player.errCode = undefined
 		player.errMessage = undefined
-		const vid = MODL.pickNext()
+		const vid = MODL.pickNext(document.getElementById('pickMode').value)
 		if(!vid) return vid
 		player.cueVideoById(vid)
 		if(!await waitUntilTrue(() => (player.errCode > 0) || (player?.playerInfo?.videoData?.video_id === vid))) {
