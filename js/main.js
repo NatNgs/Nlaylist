@@ -180,6 +180,11 @@ function applyVote() {
 	}
 }
 async function shiftVids(shiftRightVid=false) {
+	// If not enough candidates: cancel
+	if(!MODL.isReady()) {
+		return
+	}
+
 	// Prevent all actions that may skip again
 	Array.from(document.getElementsByClassName('skp')).forEach(e => e.disabled = true)
 

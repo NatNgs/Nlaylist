@@ -90,15 +90,15 @@ class PlaylistModel {
 	}
 
 	pickNext(mode=null) {
-
 		// Filter for playable ones
 		let vids = Object.keys(this.#vdata)
 			.filter(vid => !this.#unplayable.includes(vid))
+
 		// Remove last half played
 		vids = vids.filter(vid => {
 			const i = this.history.indexOf(vid)
 			return i === -1 || i > vids.length/2
-	 	})
+		})
 
 
 		if(!vids.length) {
