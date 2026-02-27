@@ -47,8 +47,13 @@ function ordered(vids, vdata, history) {
 	// Sum ranks to weights
 	const weights = vids.map(vid => [vid,
 		byScores.indexOf(vid) // The highest score: the more chance to be picked
-		+ history.indexOf(vid) // The later in history: the more it will be picked
-	])
+		+ (vdata[vid].score === 0 && vdata[vid].info === undefined
+			? 0 // Score is 0 and no info: increase chances to be picked
+			: history.indexOf(vid) // The later in history: the more it will be picked
+		)
+		+ Math.random()*.4 // Randomize if same score
+	, byScores.indexOf(vid), history.indexOf(vid)]) // DEBUG
+	console.log(weights) // DEBUG
 
 	// Pick the vid with the lowest weight
 	weights.sort((a,b) => a[1] - b[1])
