@@ -47,7 +47,6 @@ function ordered(vids, vdata, history) {
 	// Sum ranks to weights
 	const weights = vids.map(vid => [vid,
 		byScores.indexOf(vid) // The highest score: the more chance to be picked
-		/(vdata[vid].score === 0 ? 2 : 1) // If never been compared before: increase chances to be picked
 		+ history.indexOf(vid) // The later in history: the more it will be picked
 	])
 
