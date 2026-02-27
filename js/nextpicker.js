@@ -52,8 +52,7 @@ function ordered(vids, vdata, history) {
 			: history.indexOf(vid) // The later in history: the more it will be picked
 		)
 		+ Math.random()*.4 // Randomize if same score
-	, byScores.indexOf(vid), history.indexOf(vid)]) // DEBUG
-	console.log(weights) // DEBUG
+	])
 
 	// Pick the vid with the lowest weight
 	weights.sort((a,b) => a[1] - b[1])
