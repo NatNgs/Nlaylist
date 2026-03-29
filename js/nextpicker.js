@@ -1,11 +1,18 @@
 
 NEXT_PICKERS = {
+	'meta': meta_random, // Keep first in NEXT_PICKERS to avoid infinite loop^
 	'pure_random': pure_random,
 	'weighted_random': weighted_random,
 	'ordered': ordered,
 	'similar_scores': similar_scores
 }
 
+
+function meta_random(vids, vdata, history) {
+	// Pick a random algorithm to pick the video to watch
+	const rand = (Math.random() * (Object.keys(NEXT_PICKERS).length-1))|0
+	return NEXT_PICKERS[Object.keys(NEXT_PICKERS)[1+rand]](vids, vdata, history)
+}
 
 function pure_random(vids) {
 	// Pick a random vid from vids
@@ -51,7 +58,7 @@ function ordered(vids, vdata, history) {
 			? 0 // Score is 0 and no info: increase chances to be picked
 			: history.indexOf(vid) // The later in history: the more it will be picked
 		)
-		+ Math.random()*.4 // Randomize if same score
+		+ Math.random() // Randomize if same score
 	])
 
 	// Pick the vid with the lowest weight

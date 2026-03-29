@@ -25,9 +25,10 @@
 			<span><input type="checkbox" id="chkb_advctrls" onchange="toggleAdvancedControls()"/><label for="chkb_advctrls">Advanced controls</label></span>
 			<button onclick="resetList()" class="advanced">Reset list</button>
 			<select id="pickMode">
+				<option value="meta" selected>- Any -</option>
 				<option value="ordered">Top</option>
 				<option value="similar_scores">Similar</option>
-				<option value="weighted_random" selected>Weighted</option>
+				<option value="weighted_random">Weighted</option>
 				<option value="pure_random">Random</option>
 			</select>
 		</div>
