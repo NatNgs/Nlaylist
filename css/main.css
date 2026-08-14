@@ -141,6 +141,7 @@ button:hover {
 	grid-column-start: 3;
 	color: #444;
 	font-style: italic;
+	background-color: #8CA;
 }
 
 /* Display links not with underline, but with superscrit arrow instead */

@@ -9,6 +9,11 @@
 	box-shadow: -1px 1px 10px rgba(0, 0, 0, 0.3);
 	z-index: 1023;
 	transition: top 1s ease;
+	transition: opacity 0.5s ease-in-out;
+}
+.toast:hover {
+	opacity: 0.25; /* Hide when mouse over */
+	pointer-events: none; /* Click go through */
 }
 body > .toast {
 	position: fixed;
