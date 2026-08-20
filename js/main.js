@@ -39,30 +39,39 @@ function onYouTubeEventStateChange(evt) {
 		}
 	}
 }
+
+/**
+ * errCodes:
+ * 2 – The request contains an invalid parameter value. For example, this error occurs if you specify a video ID that does not have 11 characters, or if the video ID contains invalid characters, such as exclamation points or asterisks.
+ * 5 – The requested content cannot be played in an HTML5 player or another error related to the HTML5 player has occurred.
+ * 100 – The video requested was not found. This error occurs when a video has been removed (for any reason) or has been marked as private.
+ * 101 – The owner of the requested video does not allow it to be played in embedded players.
+ * 150 – same as 101
+ */
+const YT_ERRORS = {
+	INVALID_PARAM: 2,
+	HTML5_ERROR: 5,
+	NOT_FOUND: 100,
+	NOT_EMBEDDABLE: 101,
+	NOT_EMBEDDABLE_ALT: 150
+}
 function onYoutubeErrorEvent(evt) {
 	const thisPlayer = evt.target
 	const errCode = evt.data
-	/**
-	 * errCodes:
-     * 2 – The request contains an invalid parameter value. For example, this error occurs if you specify a video ID that does not have 11 characters, or if the video ID contains invalid characters, such as exclamation points or asterisks.
-     * 5 – The requested content cannot be played in an HTML5 player or another error related to the HTML5 player has occurred.
-     * 100 – The video requested was not found. This error occurs when a video has been removed (for any reason) or has been marked as private.
-     * 101 – The owner of the requested video does not allow it to be played in embedded players.
-     * 150 – same as 101
-	 */
+
 	thisPlayer.errCode = errCode
 	switch(errCode) {
-		case 2:
+		case YT_ERRORS.INVALID_PARAM:
 			thisPlayer.errMessage = 'Invalid video id'
 			break
-		case 5:
+		case YT_ERRORS.HTML5_ERROR:
 			thisPlayer.errMessage = 'Device cannot play this video'
 			break
-		case 100:
+		case YT_ERRORS.NOT_FOUND:
 			thisPlayer.errMessage = 'Video not found or removed'
 			break
-		case 101:
-		case 150:
+		case YT_ERRORS.NOT_EMBEDDABLE:
+		case YT_ERRORS.NOT_EMBEDDABLE_ALT:
 			thisPlayer.errMessage = 'Video not allowed outside Youtube'
 			break
 		default:
@@ -136,6 +145,7 @@ async function loadNextVideo(player) {
 	}
 
 	let tries = 1
+	let vid_id = null
 	while((vid_id = await _pickNextToPlayer()) && player.errCode) {
 		tries++
 		if(player !== PLAYERS.future) {
@@ -186,65 +196,108 @@ async function shiftVids(shiftRightVid=false) {
 	}
 
 	// Prevent all actions that may skip again
-	Array.from(document.getElementsByClassName('skp')).forEach(e => e.disabled = true)
+	const disabledButtons = Array.from(document.getElementsByClassName('skp'))
+	disabledButtons.forEach(e => e.disabled = true)
 
 	const playersParentDiv = document.getElementById('players')
 
-	if(PLAYERS.right) {
+	if (PLAYERS.right) {
 		applyVote()
-
-		// Remove left video (will shift left & right automatically)
-		playersParentDiv.removeChild(playersParentDiv.children[shiftRightVid ? 1 : 0])
-		if(!shiftRightVid) {
-			PLAYERS.left.destroy()
-			PLAYERS.left = PLAYERS.right
-		}
-		PLAYERS.right = PLAYERS.future
-		PLAYERS.future = null
+		await handlePlayerShift(playersParentDiv, shiftRightVid)
 		await updateRankingDiv()
 	}
 
-	let autoStarted = false
-	if(!PLAYERS.left) {
-		PLAYERS.left = await initNewPlayer(playersParentDiv)
-		PLAYERS.left.getIframe().parentElement.querySelector(".vidInfo").innerText = 'Loading...'
-		await loadNextVideo(PLAYERS.left)
-		PLAYERS.left.playVideo()
-		autoStarted = true
+	const autoStarted = await ensureLeftPlayer()
+
+	if (!PLAYERS.right) {
+		await ensureRightPlayer()
 		await updateRankingDiv()
 	}
 
-	// Update left video info
-	const currScores = MODL.getScores()
-	const linfo = PLAYERS.left.getIframe().parentElement.querySelector(".vidInfo")
-	const leftId = PLAYERS.left.getVideoData().video_id
-	linfo.innerText = `Preference: (Loading...) (ELO: ${Math.round(currScores[leftId])+1000})`
+	updatePlayerUI(autoStarted)
 
-	if(!PLAYERS.right) {
-		PLAYERS.right = await initNewPlayer()
-		PLAYERS.right.getIframe().parentElement.querySelector(".vidInfo").innerText = 'Loading...'
-		await loadNextVideo(PLAYERS.right)
-		await updateRankingDiv()
-	}
-
-	// Update video info
-	const rightId = PLAYERS.right.getVideoData().video_id
-	const rinfo = PLAYERS.right.getIframe().parentElement.querySelector(".vidInfo")
-	const probaLeft = scoreToProba(currScores[leftId]||0, currScores[rightId]||0)
-	linfo.innerText = `Preference: ${Math.round(100*probaLeft) + '%'} (ELO: ${Math.round(currScores[leftId])+1000})`
-	rinfo.innerText = `Preference: ${Math.round(100*(1-probaLeft)) + '%'} (ELO: ${Math.round(currScores[rightId])+1000})`
-
-	if(!autoStarted && PLAYERS.left.getPlayerState() !== YT.PlayerState.PLAYING) {
+	if (!autoStarted && PLAYERS.left.getPlayerState() !== YT.PlayerState.PLAYING) {
 		PLAYERS.right.playVideo()
 	}
 
-	// Re-enable buttons that skip
-	Array.from(document.getElementsByClassName('skp')).forEach(e => e.disabled = false)
+	// Re-enable buttons
+	disabledButtons.forEach(e => e.disabled = false)
 
-	// Preload next video
+	await preloadFutureVideo()
+}
+
+async function handlePlayerShift(parentDiv, shiftRight) {
+	const playerToRemove = shiftRight ? PLAYERS.right : PLAYERS.left
+	if (playerToRemove) {
+		playerToRemove.destroy()
+	}
+
+	const indexToRemove = shiftRight ? 1 : 0
+	if (parentDiv.children[indexToRemove]) {
+		parentDiv.removeChild(parentDiv.children[indexToRemove])
+	}
+
+	if (!shiftRight) {
+		PLAYERS.left = PLAYERS.right
+	}
+	PLAYERS.right = PLAYERS.future
+	PLAYERS.future = null
+}
+
+async function ensureLeftPlayer() {
+	if(PLAYERS.left) {
+		return false
+	}
+
+	PLAYERS.left = await initNewPlayer()
+	const infoDiv = PLAYERS.left.getIframe()?.parentElement?.querySelector('.vidInfo')
+	if (infoDiv) infoDiv.innerText = 'Loading...'
+
+	await loadNextVideo(PLAYERS.left)
+	PLAYERS.left.playVideo()
+
+	return true
+}
+
+async function ensureRightPlayer() {
+	if (!PLAYERS.right) {
+		PLAYERS.right = await initNewPlayer()
+		const infoDiv = PLAYERS.right.getIframe()?.parentElement?.querySelector('.vidInfo')
+		if (infoDiv) infoDiv.innerText = 'Loading...'
+
+		await loadNextVideo(PLAYERS.right)
+	}
+}
+
+function updatePlayerUI() {
+	const currScores = MODL.getScores()
+
+	const leftIframe = PLAYERS.left?.getIframe()
+	const rightIframe = PLAYERS.right?.getIframe()
+
+	if (!leftIframe || !rightIframe) return
+
+	const linfo = leftIframe.parentElement.querySelector('.vidInfo')
+	const rinfo = rightIframe.parentElement.querySelector('.vidInfo')
+
+	const leftId = PLAYERS.left.getVideoData().video_id
+	const rightId = PLAYERS.right.getVideoData().video_id
+
+	const probaLeft = scoreToProba(currScores[leftId] || 0, currScores[rightId] || 0)
+	const eloLeft = Math.round(currScores[leftId] || 0) + 1000
+	const eloRight = Math.round(currScores[rightId] || 0) + 1000
+
+	if (linfo) linfo.innerText = `Preference: ${Math.round(100 * probaLeft)}% (ELO: ${eloLeft})`
+	if (rinfo) rinfo.innerText = `Preference: ${Math.round(100 * (1 - probaLeft))}% (ELO: ${eloRight})`
+}
+
+async function preloadFutureVideo() {
+	if (PLAYERS.future) {
+		PLAYERS.future.destroy()
+	}
+
 	PLAYERS.future = await initNewPlayer()
-	loadNextVideo(PLAYERS.future, !autoStarted)
-
+	loadNextVideo(PLAYERS.future)
 }
 
 
