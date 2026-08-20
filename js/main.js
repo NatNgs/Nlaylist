@@ -17,7 +17,7 @@ async function onPageLoad() {
 	await updateRankingDiv()
 	if(MODL.isReady()) {
 		await shiftVids()
-		toast('Player is ready: Click on the video to start', 'toast-ok', PLAYERS.left.g.parentElement, 7500)
+		toast('Player is ready: Click on the video to start', 'toast-ok', PLAYERS.left.getIframe().parentElement, 7500)
 	}
 }
 
@@ -139,7 +139,7 @@ async function loadNextVideo(player) {
 	while((vid_id = await _pickNextToPlayer()) && player.errCode) {
 		tries++
 		if(player !== PLAYERS.future) {
-			toast(`<span style="font-family:monospace;">yt:${vid_id}</span> removed: ${player.errMessage}.<br/>Loading another video...`, '', player.g.parentElement, 2000)
+			toast(`<span style="font-family:monospace;">yt:${vid_id}</span> removed: ${player.errMessage}.<br/>Loading another video...`, '', player.getIframe().parentElement, 2000)
 		}
 		if([2, 100, 150].indexOf(player.errCode) >= 0) {
 			if(player === PLAYERS.future) {
@@ -152,13 +152,13 @@ async function loadNextVideo(player) {
 	}
 
 	if(!vid_id) {
-		toast('No more available video to be loaded', 'toast-err', player !== PLAYERS.future ? player.g.parentElement : null)
+		toast('No more available video to be loaded', 'toast-err', player !== PLAYERS.future ? player.getIframe().parentElement : null)
 		return null
 	}
 
 	if(tries > 1 && player !== PLAYERS.future) {
 		// Defer toast by 1/2s for UX reasons, after previous "failed to load" displayed toasts
-		setTimeout(()=>toast(`<span style="font-family:monospace;">yt:${vid_id}</span> successfuly loaded`, 'toast-ok', player.g.parentElement, 2000), 500)
+		setTimeout(()=>toast(`<span style="font-family:monospace;">yt:${vid_id}</span> successfuly loaded`, 'toast-ok', player.getIframe().parentElement, 2000), 500)
 	}
 
 	// update MODL info
@@ -207,7 +207,7 @@ async function shiftVids(shiftRightVid=false) {
 	let autoStarted = false
 	if(!PLAYERS.left) {
 		PLAYERS.left = await initNewPlayer(playersParentDiv)
-		PLAYERS.left.g.parentElement.querySelector(".vidInfo").innerText = 'Loading...'
+		PLAYERS.left.getIframe().parentElement.querySelector(".vidInfo").innerText = 'Loading...'
 		await loadNextVideo(PLAYERS.left)
 		PLAYERS.left.playVideo()
 		autoStarted = true
@@ -216,20 +216,20 @@ async function shiftVids(shiftRightVid=false) {
 
 	// Update left video info
 	const currScores = MODL.getScores()
-	const linfo = PLAYERS.left.g.parentElement.querySelector(".vidInfo")
+	const linfo = PLAYERS.left.getIframe().parentElement.querySelector(".vidInfo")
 	const leftId = PLAYERS.left.getVideoData().video_id
 	linfo.innerText = `Preference: (Loading...) (ELO: ${Math.round(currScores[leftId])+1000})`
 
 	if(!PLAYERS.right) {
 		PLAYERS.right = await initNewPlayer()
-		PLAYERS.right.g.parentElement.querySelector(".vidInfo").innerText = 'Loading...'
+		PLAYERS.right.getIframe().parentElement.querySelector(".vidInfo").innerText = 'Loading...'
 		await loadNextVideo(PLAYERS.right)
 		await updateRankingDiv()
 	}
 
 	// Update video info
 	const rightId = PLAYERS.right.getVideoData().video_id
-	const rinfo = PLAYERS.right.g.parentElement.querySelector(".vidInfo")
+	const rinfo = PLAYERS.right.getIframe().parentElement.querySelector(".vidInfo")
 	const probaLeft = scoreToProba(currScores[leftId]||0, currScores[rightId]||0)
 	linfo.innerText = `Preference: ${Math.round(100*probaLeft) + '%'} (ELO: ${Math.round(currScores[leftId])+1000})`
 	rinfo.innerText = `Preference: ${Math.round(100*(1-probaLeft)) + '%'} (ELO: ${Math.round(currScores[rightId])+1000})`
