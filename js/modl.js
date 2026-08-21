@@ -182,6 +182,15 @@ class PlaylistModel {
 		this.#vdata[id_b].score += upd_b
 		console.debug(id_b, upd_b.toFixed(2))
 
+		// Videos scored 0 are considered 'never compared yet'
+		// If any comparison have been made, score should not be 0 again. Set it to -1 instead
+		if(this.#vdata[id_a].score === 0) {
+			this.#vdata[id_a].score = -1
+		}
+		if(this.#vdata[id_b].score === 0) {
+			this.#vdata[id_b].score = -1
+		}
+
 		this.#callUpdate()
 	}
 
@@ -247,10 +256,32 @@ class PlaylistModel {
 		// Insert unplayable videos in the middle of sortedScores
 		sortedScores.splice((sortedScores.length/2) |0, 0, ...this.#unplayable)
 
+		// Normalize scores (to make average score go toward 0)
+		let scoresSum = 0
+		let repartCount = 0
+		for(const score of Object.values(sortedScores)) {
+			if(score !== 0) {
+				repartCount++
+				scoresSum += score
+			}
+		}
+		if(scoresSum > 1 || scoresSum < -1) console.debug('Score total deviation from 0:', scoresSum)
+
 		// Extract scores
 		for(const vid of sortedScores) {
 			const infodata = this.getInfodata(vid)
-			text.push([vid, Math.round(scores[vid]) || '', infodata.title || '', infodata.duration || ''])
+
+			// Apply score normalization toward average score=0
+			// Keep 0 scored video to 0 (never compared ones), and prevent others to become 0 (to not mark them back as never compared)
+			// Not ideal, but no need to be perfect, this is close enough with minimal code
+			const actualScore = scores[vid]
+			const isCompared = actualScore !== 0
+			let normalizedScore = isCompared ? actualScore - scoresSum/repartCount : 0
+			if(isCompared && normalizedScore > -1 && normalizedScore < 0) normalizedScore = -1
+			else if(isCompared && normalizedScore >= 0 && normalizedScore < 1) normalizedScore = 1
+			else normalizedScore = Math.round(normalizedScore)
+
+			text.push([vid, normalizedScore || '', infodata.title || '', infodata.duration || ''])
 		}
 		return text.map(row => row.join('\t').replace(/[ \t]+$/,'')).join('\n')
 	}

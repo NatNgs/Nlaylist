@@ -5,13 +5,13 @@ async function updateList(rankingDiv, allVdata, history) {
 
 	await updateWholeList(rankingDiv, allVdata, sortedScores)
 
-	showHideElements(rankingDiv, history)
+	showHideElements(history)
 }
 
 async function updateWholeList(rankingDiv, allVdata, sortedScores) {
 	rankingDiv.innerHTML = '' // Clear ranking
 
-	// Add a single row for all videos never played
+	// Add a single row for all videos never compared
 	let div = document.getElementById('ranking_unranked')
 	let titleCell = div?.querySelector('.title')
 	if(!div) {
@@ -80,14 +80,14 @@ async function updateWholeList(rankingDiv, allVdata, sortedScores) {
 			updCell.innerHTML = ''
 		}
 
+		if(vdata.score == 0) {
+			unscored += 1
+			continue
+		}
 		if(vdata.info && vdata.info.title) {
 			titleCell.innerHTML = `<a href="https://www.youtube.com/watch?v=${vid}" target="_blank" rel="noopener noreferrer">${vdata.info.title}</a>`
 			titleCell.classList.remove('vid')
 		} else {
-			if(vdata.score == 0) {
-				unscored += 1
-				continue // Skip if no title & score == 0
-			}
 			titleCell.innerHTML = `Unknown video: <a href="https://www.youtube.com/watch?v=${vid}" target="_blank" rel="noopener noreferrer">yt:${vid}</a>` // Show vid
 			titleCell.classList.add('vid')
 		}
@@ -106,11 +106,11 @@ async function updateWholeList(rankingDiv, allVdata, sortedScores) {
 	// Update counts
 	titleCell.innerText = `${sortedScores.length - unscored} listed videos`
 	if(unscored > 0) {
-		titleCell.innerText += ` (+${unscored} never played yet)`
+		titleCell.innerText += ` (+${unscored} never compared yet)`
 	}
 }
 
-function showHideElements(rankingDiv, history) {
+function showHideElements(history) {
 	const list = Array.from(document.getElementsByClassName('rankingItem'))
 
 	// Mark them all as hidden
