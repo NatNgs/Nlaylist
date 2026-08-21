@@ -148,10 +148,11 @@ async function loadNextVideo(player) {
 	let vid_id = null
 	while((vid_id = await _pickNextToPlayer()) && player.errCode) {
 		tries++
+		const isToBeRemoved = [2, 100, 150].indexOf(player.errCode) >= 0
 		if(player !== PLAYERS.future) {
-			toast(`<span style="font-family:monospace;">yt:${vid_id}</span> removed: ${player.errMessage}.<br/>Loading another video...`, '', player.getIframe().parentElement, 2000)
+			toast(`<span style="font-family:monospace;">yt:${vid_id}</span> ${isToBeRemoved ? 'removed' : 'skipped'}: ${player.errMessage}.<br/>Loading another video...`, '', player.getIframe().parentElement, 2000)
 		}
-		if([2, 100, 150].indexOf(player.errCode) >= 0) {
+		if(isToBeRemoved) {
 			if(player === PLAYERS.future) {
 				toast(`<span style="font-family:monospace;">yt:${vid_id}</span> removed: ${player.errMessage}`, '', null, 2000)
 			}

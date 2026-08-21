@@ -259,13 +259,13 @@ class PlaylistModel {
 		// Normalize scores (to make average score go toward 0)
 		let scoresSum = 0
 		let repartCount = 0
-		for(const score of Object.values(sortedScores)) {
+		for(const score of Object.values(scores)) {
 			if(score !== 0) {
 				repartCount++
 				scoresSum += score
 			}
 		}
-		if(scoresSum > 1 || scoresSum < -1) console.debug('Score total deviation from 0:', scoresSum)
+		console.debug('Score total deviation from 0:', scoresSum)
 
 		// Extract scores
 		for(const vid of sortedScores) {
