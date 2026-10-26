@@ -25,7 +25,8 @@ function weighted_random(vids, vdata, history) {
 	const weights = vids.map(vid => (SCORING.points(vdata[vid])/100)**2)
 
 	// Give oldest video in history a significant weight boost
-	const historyIndexes = vids.map(vid => history.indexOf(vid))
+	const historyIndex = new Map(history.map((vid, i) => [vid, i]))
+	const historyIndexes = vids.map(vid => historyIndex.get(vid) ?? -1)
 	weights[historyIndexes.indexOf(historyIndexes.reduce((a, b) => Math.max(a, b)))] += 1
 
 	// Pick one with weighted random
@@ -45,19 +46,19 @@ function weighted_random(vids, vdata, history) {
 
 function ordered(vids, vdata, history) {
 	// Rank vids by their score (best score first)
-	let byScores = vids.map(vid => [vid, vdata[vid].score])
+	const byScores = vids.map(vid => [vid, vdata[vid].score])
 	byScores.sort((a,b) => b[1] - a[1])
-	byScores = byScores.map(v => v[0])
+	const scoreRank = new Map(byScores.map((v, i) => [v[0], i]))
 
 	// Rank vids by their position in history (last played first)
-	// ~~ nothing to do, history is already sorted ~~
+	const historyIndex = new Map(history.map((vid, i) => [vid, i]))
 
 	// Sum ranks to weights
 	const weights = vids.map(vid => [vid,
-		byScores.indexOf(vid) // The highest score: the more chance to be picked
+		scoreRank.get(vid) // The highest score: the more chance to be picked
 		+ (!SCORING.isCompared(vdata[vid]) && vdata[vid].info === undefined
 			? 0 // Never compared and no info: increase chances to be picked
-			: history.length - 1 - history.indexOf(vid) // The older in history (the later in history array): the more it will be picked
+			: history.length - 1 - (historyIndex.get(vid) ?? -1) // The older in history (the later in history array): the more it will be picked
 		)
 		+ Math.random() // Randomize if same score
 	])
@@ -75,10 +76,12 @@ function similar_scores(vids, vdata, history) {
 	const scores = vids.map(vid => [vid, Math.abs(vdata[vid].score - lastScore)])
 
 	// The last vid in history get its score divided by 2, to help it being selected
-	scores.sort((a,b) => history.indexOf(b[0]) - history.indexOf(a[0]))
+	const historyIndex = new Map(history.map((vid, i) => [vid, i]))
+	const indexOf = vid => historyIndex.get(vid) ?? -1
+	scores.sort((a,b) => indexOf(b[0]) - indexOf(a[0]))
 	scores[0][1] /= 2
 
 	// Pick the vid with the lowest score, if same score, the last from history
-	scores.sort((a,b) => (a[1] - b[1]) || (history.indexOf(b[0]) - history.indexOf(a[0])))
+	scores.sort((a,b) => (a[1] - b[1]) || (indexOf(b[0]) - indexOf(a[0])))
 	return scores[0][0]
 }

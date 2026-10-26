@@ -97,7 +97,7 @@ button:hover {
 
 .rankingItem {
 	display: grid;
-	grid-template-columns: 4em 4em 3em auto;
+	grid-template-columns: 4em 4em 4em auto;
 	grid-column-gap: 0.125em;
 	margin: 0.25em;
 	margin-right: 1.25em;
@@ -107,10 +107,10 @@ button:hover {
 	padding: 0.125em;
 	transition: background-color 1s, opacity 1s;
 }
-.rankingItem .score, .rankingItem .certainty {
+.rankingItem .score, .rankingItem .uncertainty {
 	text-align: right;
 }
-.rankingItem .certainty {
+.rankingItem .uncertainty {
 	color: #444;
 }
 .rankingItem .vid {

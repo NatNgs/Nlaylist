@@ -9,7 +9,7 @@ async function updateList(rankingDiv, allVdata, history) {
 }
 
 async function updateWholeList(rankingDiv, allVdata, sortedScores) {
-	rankingDiv.innerHTML = '' // Clear ranking
+	// Rows are kept from an update to another, and moved only when their rank changes (so that CSS transitions apply)
 
 	// Add a single row for all videos never compared
 	let div = document.getElementById('ranking_unranked')
@@ -21,17 +21,19 @@ async function updateWholeList(rankingDiv, allVdata, sortedScores) {
 		titleCell = document.createElement('div')
 		titleCell.classList.add('title')
 		div.appendChild(titleCell)
-		rankingDiv.appendChild(div)
+		rankingDiv.prepend(div)
 	}
 
 	let unscored = 0
+	let previousDiv = div // Rows are placed after the 'never compared' row, in sortedScores order
+	const listed = new Set()
 	for(const vid of sortedScores) {
 		const vdata = allVdata[vid]
 		const id = 'ranking_' + vid
 
 		// Get div by id, or create new one if none found
 		let div = document.getElementById(id)
-		let updCell, scoreCell, certaintyCell, titleCell
+		let updCell, scoreCell, uncertaintyCell, titleCell
 		if(!div) {
  			div = document.createElement('div')
 			div.id = id
@@ -45,10 +47,10 @@ async function updateWholeList(rankingDiv, allVdata, sortedScores) {
 			scoreCell.classList.add('score')
 			div.appendChild(scoreCell)
 
-			certaintyCell = document.createElement('div')
-			certaintyCell.classList.add('certainty')
-			certaintyCell.title = 'Certainty of the score'
-			div.appendChild(certaintyCell)
+			uncertaintyCell = document.createElement('div')
+			uncertaintyCell.classList.add('uncertainty')
+			uncertaintyCell.title = 'Uncertainty of the points'
+			div.appendChild(uncertaintyCell)
 
 			titleCell = document.createElement('div')
 			titleCell.classList.add('title')
@@ -56,18 +58,18 @@ async function updateWholeList(rankingDiv, allVdata, sortedScores) {
 		} else {
 			updCell = div.querySelector('.upd')
 			scoreCell = div.querySelector('.score')
-			certaintyCell = div.querySelector('.certainty')
+			uncertaintyCell = div.querySelector('.uncertainty')
 			titleCell = div.querySelector('.title')
 		}
 
 		// Display current score as % chance of win against average score
 		scoreCell.innerHTML = (Math.round(SCORING.points(vdata)) + ' pts')
-		certaintyCell.innerHTML = (Math.round(100*SCORING.certainty(vdata)) + '%')
+		uncertaintyCell.innerHTML = ('+/- ' + Math.ceil(SCORING.pointsMargin(vdata)))
 
 		// If vid is left or right: highlight the title
-		if(vid === PLAYERS.left?.getVideoData()?.video_id) {
+		if(vid === PLAYERS.left?.videoId) {
 			div.classList.add('displayed')
-		} else if(vid === PLAYERS.right?.getVideoData()?.video_id) {
+		} else if(vid === PLAYERS.right?.videoId) {
 			div.classList.add('displayed')
 		} else {
 			div.classList.remove('displayed')
@@ -78,13 +80,13 @@ async function updateWholeList(rankingDiv, allVdata, sortedScores) {
 
 		if(scoreDiff < 0) {
 			updCell.innerHTML = '▼ ' + ('-' + (-scoreDiff)).padStart(3, ' ').replaceAll(/ /g, '&nbsp;') + '%'
-			updCell.classList.add('red')
 		} else if(scoreDiff > 0) {
 			updCell.innerHTML = '▲ ' + ('+' + scoreDiff).padStart(3, ' ').replaceAll(/ /g, '&nbsp;') + '%'
-			updCell.classList.add('green')
 		} else {
 			updCell.innerHTML = ''
 		}
+		updCell.classList.toggle('red', scoreDiff < 0)
+		updCell.classList.toggle('green', scoreDiff > 0)
 
 		if(!SCORING.isCompared(vdata)) {
 			unscored += 1
@@ -98,13 +100,18 @@ async function updateWholeList(rankingDiv, allVdata, sortedScores) {
 			titleCell.classList.add('vid')
 		}
 
-		rankingDiv.appendChild(div)
+		// Place the row just after the previous one (moved only if needed)
+		if(previousDiv.nextSibling !== div) {
+			rankingDiv.insertBefore(div, previousDiv.nextSibling)
+		}
+		previousDiv = div
+		listed.add(vid)
 	}
 
-	// Find and remove rankingItem divs that are not in sortedScore (neither ranking_unranked)
+	// Find and remove rankingItem divs of videos not listed anymore (except ranking_unranked)
 	for(const div of rankingDiv.querySelectorAll('.rankingItem')) {
 		const did = div.id.replace('ranking_','')
-		if(did !== 'unranked' && !sortedScores.includes(did)) {
+		if(did !== 'unranked' && !listed.has(did)) {
 			rankingDiv.removeChild(div)
 		}
 	}

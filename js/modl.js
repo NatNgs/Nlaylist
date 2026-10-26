@@ -5,7 +5,7 @@ const TSV_HEADER = ['#nlaylist', 'v2', 'elo'] // First line of saved files (file
 // Model
 class PlaylistModel {
 	#vdata // vid : {<score data (see SCORING)>, info: {youtube video info}, merged: [info of merged videos]}
-	#unplayable // [vid, vid, ...]
+	#unplayable // Set of vid
 	#combo // [vid, vid, ...]
 	#comboDir // -1, 0, 1
 	history // [vid, vid, ...]
@@ -32,7 +32,7 @@ class PlaylistModel {
 			this.history = []
 		}
 
-		this.#unplayable = [] // Not stored in localStorage
+		this.#unplayable = new Set() // Not stored in localStorage
 
 		// Combo mode - Not stored in localStorage
 		this.#combo = [] // List of previously compared videos by order or comparisons
@@ -76,7 +76,7 @@ class PlaylistModel {
 	}
 
 	isReady() {
-		return Object.keys(this.#vdata).filter(vid => !this.#unplayable.includes(vid)).length > 3
+		return Object.keys(this.#vdata).filter(vid => !this.#unplayable.has(vid)).length > 3
 	}
 
 	addVid(url, scoreData=null) {
@@ -120,11 +120,12 @@ class PlaylistModel {
 	pickNext(mode=null) {
 		// Filter for playable ones
 		let vids = Object.keys(this.#vdata)
-			.filter(vid => !this.#unplayable.includes(vid))
+			.filter(vid => !this.#unplayable.has(vid))
 
 		// Remove last half played
+		const historyIndex = new Map(this.history.map((vid, i) => [vid, i]))
 		vids = vids.filter(vid => {
-			const i = this.history.indexOf(vid)
+			const i = historyIndex.get(vid) ?? -1
 			return i === -1 || i > vids.length/2
 		})
 
@@ -142,16 +143,16 @@ class PlaylistModel {
 
 		// Update lastScore
 		this.#vdata[vid].lastScore = this.#vdata[vid].score
-		this.updateLocalStorage()
+		this.#callUpdate()
 		return vid
 	}
 
 	markAsUnplayable(vid) {
-		this.#unplayable.push(vid)
+		this.#unplayable.add(vid)
 		// remove vid from history
 		this.#removeFromHistory(vid)
 
-		console.log(vid, 'was not able to be played -- Remaining videos:', Object.keys(this.#vdata).filter(vid => !this.#unplayable.includes(vid)).length)
+		console.log(vid, 'was not able to be played -- Remaining videos:', Object.keys(this.#vdata).filter(vid => !this.#unplayable.has(vid)).length)
 	}
 	#removeFromHistory(vid) {
 		const index = this.history.indexOf(vid)
@@ -160,7 +161,7 @@ class PlaylistModel {
 	getScores(keepUnplayable = false) {
 		const scores = {}
 		for(const vid in this.#vdata) {
-			if(!keepUnplayable && this.#unplayable.includes(vid)) continue
+			if(!keepUnplayable && this.#unplayable.has(vid)) continue
 			scores[vid] = this.#vdata[vid].score
 		}
 		return scores
@@ -168,7 +169,7 @@ class PlaylistModel {
 	get vdata() {
 		const out = {}
 		for(const v in this.#vdata)
-			if(!this.#unplayable.includes(v))
+			if(!this.#unplayable.has(v))
 				out[v] = {...this.#vdata[v]}
 		return out
 	}
@@ -236,7 +237,7 @@ class PlaylistModel {
 		this.#removeFromHistory(vidToRemove)
 
 		// Remove from unplayable
-		this.#unplayable = this.#unplayable.filter(vid => vid !== vidToRemove)
+		this.#unplayable.delete(vidToRemove)
 
 		// Remove from combo (remaining members are still ordered, by transitivity)
 		this.#combo = this.#combo.filter(vid => vid !== vidToRemove)
@@ -249,10 +250,11 @@ class PlaylistModel {
 	}
 
 	setInfodata(vid, title, duration) {
+		if(!this.#vdata[vid]) return // Video removed meanwhile (info received asynchronously)
 		this.#vdata[vid].info = {...this.#vdata[vid].info, video_id: vid} // Keep known info if not given
 		if(title) this.#vdata[vid].info.title = title
 		if(duration) this.#vdata[vid].info.duration = duration
-		this.updateLocalStorage()
+		this.#callUpdate()
 	}
 	getInfodata(vid) {
 		return this.#vdata[vid].info || {}
@@ -289,12 +291,13 @@ class PlaylistModel {
 	}
 	exportToTSV() {
 		// export MODL data as text: header, then "<vid> \t <title> \t <duration> \t <score columns>"
-		const sortedScores = Object.keys(this.#vdata).filter(vid => !this.#unplayable.includes(vid))
+		const sortedScores = Object.keys(this.#vdata).filter(vid => !this.#unplayable.has(vid))
 
 		// Sort according to history
+		const historyIndex = new Map(this.history.map((vid, i) => [vid, i]))
 		sortedScores.sort((a, b) => {
-			const ia = this.history.indexOf(a)
-			const ib = this.history.indexOf(b)
+			const ia = historyIndex.get(a) ?? -1
+			const ib = historyIndex.get(b) ?? -1
 			return ia < 0 ? (ib < 0 ? 0 : 1) : (ib < 0 ? -1 : ia - ib)
 		})
 
@@ -321,7 +324,7 @@ class PlaylistModel {
 
 	reset() {
 		this.#vdata = {}
-		this.#unplayable.length = 0
+		this.#unplayable.clear()
 		this.history.length = 0
 		this.#combo.length = 0
 		this.#comboDir = 0

@@ -69,11 +69,6 @@ const SCORING = {
 		return data.uncertainty < UNCERTAINTY_MAX
 	},
 
-	// Certainty of the score, from 0 (never compared) to 1 (will not change anymore)
-	certainty(data) {
-		return (UNCERTAINTY_MAX - data.uncertainty) / (UNCERTAINTY_MAX - UNCERTAINTY_MIN)
-	},
-
 	// Probability for video a to be preferred to video b (0.5 when scores are uncertain)
 	proba(a, b) {
 		const g = glickoG(Math.sqrt(a.uncertainty**2 + b.uncertainty**2))
@@ -85,6 +80,11 @@ const SCORING = {
 		return 100*scoreToProba(data.score, 0)
 	},
 
+	// Uncertainty of the displayed points: half of the points range covered by score +/- uncertainty
+	pointsMargin(data) {
+		return 50*(scoreToProba(data.score + data.uncertainty, 0) - scoreToProba(data.score - data.uncertainty, 0))
+	},
+
 	// Score evolution since the video was last picked, in %
 	evolution(data) {
 		return 200*scoreToProba(data.score, data.lastScore) - 100
@@ -92,7 +92,7 @@ const SCORING = {
 
 	// Score description, displayed under players
 	describe(data) {
-		return `ELO: ${Math.round(data.score) + 1000}, certainty: ${Math.round(100*this.certainty(data))}%`
+		return `Score: ${Math.round(this.points(data))} +/- ${Math.ceil(this.pointsMargin(data))}`
 	},
 
 	/**

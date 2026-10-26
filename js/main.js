@@ -25,6 +25,12 @@ async function onPageLoad() {
 }
 
 
+// Youtube IFrame API (loaded asynchronously): calls onYouTubeIframeAPIReady once ready
+const YT_API_READY = new Promise(resolve => {
+	if(window.YT?.loaded) resolve()
+	else window.onYouTubeIframeAPIReady = resolve
+})
+
 // Prepare Youtube Player
 const PLAYERS = {
 	left: null,
@@ -103,6 +109,13 @@ function getCurrentChoice() {
 
 let __playerids = 0
 async function initNewPlayer() {
+	// Wait for Youtube API (10s max)
+	await Promise.race([YT_API_READY, sleep(10000)])
+	if(!window.YT?.Player) {
+		toast('Youtube API loading failed', 'toast-err')
+		throw new Error('Youtube API loading failed')
+	}
+
 	const playerId = __playerids++
 
 	const div = document.createElement('div')
@@ -149,15 +162,26 @@ function destroyPlayer(player) {
 	player.destroy()
 	player.container.remove()
 }
+// Video title, from Youtube oEmbed endpoint (null if not available)
+async function fetchVideoTitle(vid) {
+	try {
+		const response = await fetch('https://www.youtube.com/oembed?format=json&url=' + encodeURIComponent('https://www.youtube.com/watch?v=' + vid))
+		return response.ok ? (await response.json()).title : null
+	} catch(e) {
+		return null
+	}
+}
 async function loadNextVideo(player) {
 	player.isLoading = true // Loading errors are handled here, not by onYoutubeErrorEvent
 	const _pickNextToPlayer = async () => {
 		player.errCode = undefined
 		player.errMessage = undefined
 		const vid = MODL.pickNext(document.getElementById('pickMode').value)
+		player.videoId = vid // Id of the video loaded in the player
 		if(!vid) return vid
 		player.cueVideoById(vid)
-		if(!await waitUntilTrue(() => (player.errCode > 0) || (player?.playerInfo?.videoData?.video_id === vid))) {
+		const isCued = () => player.getPlayerState() === YT.PlayerState.CUED && player.getVideoUrl().includes('v=' + vid)
+		if(!await waitUntilTrue(() => (player.errCode > 0) || isCued())) {
 			player.errCode = YT_ERRORS.LOADING_TIMEOUT
 			player.errMessage = 'Loading timeout'
 		}
@@ -194,23 +218,21 @@ async function loadNextVideo(player) {
 		setTimeout(()=>toast(`<span style="font-family:monospace;">yt:${escapeHtml(vid_id)}</span> successfuly loaded`, 'toast-ok', player.getIframe().parentElement, 2000), 500)
 	}
 
-	// update MODL info
-	MODL.setInfodata(vid_id, player.getVideoData().title, player.getDuration())
+	// update MODL info (title received later)
+	MODL.setInfodata(vid_id, null, player.getDuration())
+	fetchVideoTitle(vid_id).then(title => MODL.setInfodata(vid_id, title, null))
 	player.isLoading = false
 	return vid_id
 }
 function applyVote(keepCombo=false) {
 	const currSelection = getCurrentChoice()
-	const left = PLAYERS.left?.getVideoData()?.video_id
-	const right = PLAYERS.right?.getVideoData()?.video_id
+	const left = PLAYERS.left?.videoId
+	const right = PLAYERS.right?.videoId
 	if(left && right && currSelection !== null) {
 		MODL.applyVote(left, currSelection, right)
 
-		// Reset choice
+		// Reset choice (ranking is updated after the players shift)
 		choice(null)
-
-		// Update ranking div
-		updateRankingDiv()
 	} else if(!keepCombo) {
 		// Skip without vote: reset combo
 		MODL.resetCombo()
@@ -310,13 +332,13 @@ function updatePlayerUI() {
 	const linfo = leftIframe.parentElement.querySelector('.vidInfo')
 	const rinfo = rightIframe.parentElement.querySelector('.vidInfo')
 
-	const left = vdata[PLAYERS.left.getVideoData().video_id] || SCORING.newScore()
-	const right = vdata[PLAYERS.right.getVideoData().video_id] || SCORING.newScore()
+	const left = vdata[PLAYERS.left.videoId] || SCORING.newScore()
+	const right = vdata[PLAYERS.right.videoId] || SCORING.newScore()
 
 	const probaLeft = SCORING.proba(left, right)
 
-	if (linfo) linfo.innerText = `Preference: ${Math.round(100 * probaLeft)}% (${SCORING.describe(left)})`
-	if (rinfo) rinfo.innerText = `Preference: ${Math.round(100 * (1 - probaLeft))}% (${SCORING.describe(right)})`
+	if (linfo) linfo.innerText = `Chance: ${Math.round(100 * probaLeft)}% (${SCORING.describe(left)})`
+	if (rinfo) rinfo.innerText = `Chance: ${Math.round(100 * (1 - probaLeft))}% (${SCORING.describe(right)})`
 }
 
 async function preloadFutureVideo() {
@@ -464,16 +486,16 @@ function toggleAdvancedControls() {
 
 function mergeRight() {
 	choice(null)
-	MODL.removeVideo(PLAYERS.left.getVideoData().video_id, PLAYERS.right.getVideoData().video_id)
+	MODL.removeVideo(PLAYERS.left.videoId, PLAYERS.right.videoId)
 	shiftVids(false, true)
 }
 function mergeLeft() {
 	choice(null)
-	MODL.removeVideo(PLAYERS.right.getVideoData().video_id, PLAYERS.left.getVideoData().video_id)
+	MODL.removeVideo(PLAYERS.right.videoId, PLAYERS.left.videoId)
 	shiftVids(true, true)
 }
 function removeRight() {
 	choice(null)
-	MODL.removeVideo(PLAYERS.right.getVideoData().video_id)
+	MODL.removeVideo(PLAYERS.right.videoId)
 	shiftVids(true, true)
 }
