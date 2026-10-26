@@ -1,6 +1,7 @@
 // Utils
 const ELO_BASE = 400
 const ELO_K = 33
+const STORAGE_PREFIX = 'nlaylist.' // localStorage is shared by all pages of the same origin
 function scoreToProba(eloA, eloB) {
 	return 1 / (1 + Math.pow(10, (eloB - eloA) / ELO_BASE))
 }
@@ -14,16 +15,19 @@ class PlaylistModel {
 	history // [vid, vid, ...]
 
 	#isCallingUpdate // timeout ref
+	#storageError // true if last localStorage update failed
 
 	constructor() {
+		this.#migrateLocalStorage()
+
 		try {
-			this.#vdata = JSON.parse(localStorage['vdata'])
+			this.#vdata = JSON.parse(localStorage[STORAGE_PREFIX + 'vdata'])
 		} catch(e) {
 			this.#vdata = {}
 		}
 
 		try {
-			this.history = JSON.parse(localStorage['history'])
+			this.history = JSON.parse(localStorage[STORAGE_PREFIX + 'history'])
 		} catch(e) {
 			this.history = []
 		}
@@ -35,12 +39,40 @@ class PlaylistModel {
 		this.#comboDir = 0 // Any score between two consecutive members of combo array
 
 		this.#isCallingUpdate = false
+		this.#storageError = false
 		this.#callUpdate()
 	}
 
+	#migrateLocalStorage() {
+		// Move data stored by previous versions under unprefixed keys, only if it looks like Nlaylist data
+		try {
+			if(localStorage[STORAGE_PREFIX + 'vdata'] !== undefined || localStorage['vdata'] === undefined) return
+			const vdata = JSON.parse(localStorage['vdata'])
+			const history = JSON.parse(localStorage['history'] || '[]')
+			if(Object.values(vdata).every(d => d && 'score' in d) && Array.isArray(history)) {
+				localStorage[STORAGE_PREFIX + 'vdata'] = localStorage['vdata']
+				localStorage[STORAGE_PREFIX + 'history'] = JSON.stringify(history)
+				localStorage.removeItem('vdata')
+				localStorage.removeItem('history')
+			}
+		} catch(e) {
+			console.error('Unable to migrate browser storage', e)
+		}
+	}
+
 	async updateLocalStorage() {
-		localStorage['vdata'] = JSON.stringify(this.#vdata)
-		localStorage['history'] = JSON.stringify(this.history)
+		try {
+			localStorage[STORAGE_PREFIX + 'vdata'] = JSON.stringify(this.#vdata)
+			localStorage[STORAGE_PREFIX + 'history'] = JSON.stringify(this.history)
+			this.#storageError = false
+		} catch(e) {
+			console.error('Unable to save data in browser storage', e)
+			// Notify once (toasts.js is loaded asynchronously, it may not be available yet)
+			if(!this.#storageError && typeof toast === 'function') {
+				this.#storageError = true
+				toast('Unable to save data in browser storage: use "Save to file" to keep your changes', 'toast-err')
+			}
+		}
 	}
 
 	isReady() {
@@ -109,7 +141,7 @@ class PlaylistModel {
 		const vid = NEXT_PICKERS[mode || 'weighted_random'](vids, this.#vdata, this.history)
 
 		// History: move vid to the front of the list
-		this.history.splice(this.history.indexOf(vid), 1)
+		this.#removeFromHistory(vid)
 		this.history.unshift(vid)
 
 		// Update lastScore
@@ -121,9 +153,13 @@ class PlaylistModel {
 	markAsUnplayable(vid) {
 		this.#unplayable.push(vid)
 		// remove vid from history
-		this.history.splice(this.history.indexOf(vid), 1)
+		this.#removeFromHistory(vid)
 
 		console.log(vid, 'was not able to be played -- Remaining videos:', Object.keys(this.#vdata).filter(vid => !this.#unplayable.includes(vid)).length)
+	}
+	#removeFromHistory(vid) {
+		const index = this.history.indexOf(vid)
+		if(index >= 0) this.history.splice(index, 1)
 	}
 	getScores(keepUnplayable = false) {
 		const scores = {}
@@ -222,7 +258,7 @@ class PlaylistModel {
 		}
 
 		// Remove from history
-		this.history.splice(this.history.indexOf(vidToRemove), 1)
+		this.#removeFromHistory(vidToRemove)
 
 		// Remove from combo (remaining members are still ordered, by transitivity)
 		this.#combo = this.#combo.filter(vid => vid !== vidToRemove)
@@ -235,7 +271,7 @@ class PlaylistModel {
 	}
 
 	setInfodata(vid, title, duration) {
-		this.#vdata[vid].info = {video_id: vid}
+		this.#vdata[vid].info = {...this.#vdata[vid].info, video_id: vid} // Keep known info if not given
 		if(title) this.#vdata[vid].info.title = title
 		if(duration) this.#vdata[vid].info.duration = duration
 		this.updateLocalStorage()
@@ -314,6 +350,7 @@ class PlaylistModel {
 		this.history.length = 0
 		this.#combo.length = 0
 		this.#comboDir = 0
+		this.#callUpdate()
 	}
 }
 

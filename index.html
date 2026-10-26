@@ -10,7 +10,7 @@
 
 		<!-- internal -->
 		<link rel="stylesheet" href="css/main.css">
-		<link rel="stylesheet" href="css/toast.css" defer>
+		<link rel="stylesheet" href="css/toast.css">
 		<script src="js/nextpicker.js"></script>
 		<script src="js/list.js"></script>
 		<script src="js/modl.js"></script>
@@ -47,9 +47,9 @@
 				<button id="btn_eql" class="btn0" onclick="choice('btn_eql')" title="I do not prefer left or right video">=</button><br/>
 				<button id="btn_skp" class="skp btns" onclick="skip()" title="Apply vote and show the next video">Next</button><br/>
 				<div class="advanced">
-					<button id="btn_mrg" class="skp" onclick="mergeLeft()" title="Both video are the same: Remove the right one, and merge it into the left one">&lt; Merge &lt;</button>
+					<button id="btn_mrg_lft" class="skp" onclick="mergeLeft()" title="Both video are the same: Remove the right one, and merge it into the left one">&lt; Merge &lt;</button>
 					<button id="btn_del" class="skp" onclick="removeRight()" title="Remove the right video from the list">Delete ></button>
-					<button id="btn_mrg" class="skp" onclick="mergeRight()" title="Both video are the same: Remove the left one, and merge it into the right one">> Merge ></button>
+					<button id="btn_mrg_rgt" class="skp" onclick="mergeRight()" title="Both video are the same: Remove the left one, and merge it into the right one">> Merge ></button>
 				</div>
 			</div>
 			<div id="rightactions">

@@ -16,16 +16,17 @@ function meta_random(vids, vdata, history) {
 
 function pure_random(vids) {
 	// Pick a random vid from vids
-	const rand = (Math.random() * vids)|0
+	const rand = (Math.random() * vids.length)|0
 	return vids[rand]
 }
 
-function weighted_random(vids, vdata) {
+function weighted_random(vids, vdata, history) {
 	// Weight them all (weight = scoreToProba(currScore, 0))
 	const weights = vids.map(vid => scoreToProba(vdata[vid].score, 0)**2)
 
 	// Give oldest video in history a significant weight boost
-	weights[weights.length-1] += 1
+	const historyIndexes = vids.map(vid => history.indexOf(vid))
+	weights[historyIndexes.indexOf(historyIndexes.reduce((a, b) => Math.max(a, b)))] += 1
 
 	// Pick one with weighted random
 	const totalWeight = weights.reduce((a, b) => a + b)
@@ -56,7 +57,7 @@ function ordered(vids, vdata, history) {
 		byScores.indexOf(vid) // The highest score: the more chance to be picked
 		+ (vdata[vid].score === 0 && vdata[vid].info === undefined
 			? 0 // Score is 0 and no info: increase chances to be picked
-			: history.indexOf(vid) // The later in history: the more it will be picked
+			: history.length - 1 - history.indexOf(vid) // The older in history (the later in history array): the more it will be picked
 		)
 		+ Math.random() // Randomize if same score
 	])
@@ -69,8 +70,8 @@ function ordered(vids, vdata, history) {
 function similar_scores(vids, vdata, history) {
 	if(history.length < 2) return pure_random(vids)
 
-	// Check the score of the last vid in history. Sort others by how similair their score is (absolute difference)
-	const lastScore = vdata[history[history.length-1]].score
+	// Check the score of the last picked vid (the one the next vid will be compared to). Sort others by how similair their score is (absolute difference)
+	const lastScore = vdata[history[0]].score
 	const scores = vids.map(vid => [vid, Math.abs(vdata[vid].score - lastScore)])
 
 	// The last vid in history get its score divided by 2, to help it being selected

@@ -10,6 +10,9 @@ async function waitUntilTrue(condition) {
 	}
 	return condition()
 }
+function escapeHtml(text) {
+	return String(text).replace(/[&<>"']/g, c => `&#${c.charCodeAt(0)};`)
+}
 
 async function onPageLoad() {
 	toggleAdvancedControls()
@@ -53,7 +56,8 @@ const YT_ERRORS = {
 	HTML5_ERROR: 5,
 	NOT_FOUND: 100,
 	NOT_EMBEDDABLE: 101,
-	NOT_EMBEDDABLE_ALT: 150
+	NOT_EMBEDDABLE_ALT: 150,
+	LOADING_TIMEOUT: -1, // Not a Youtube error code: video loading timeout
 }
 function onYoutubeErrorEvent(evt) {
 	const thisPlayer = evt.target
@@ -76,6 +80,11 @@ function onYoutubeErrorEvent(evt) {
 			break
 		default:
 			thisPlayer.errMessage = 'Unknown error (code:' + errCode + ')'
+	}
+
+	// Error out of loading (while playing): continue as if video ended
+	if(!thisPlayer.isLoading) {
+		onYouTubeEventStateChange({target: thisPlayer, data: YT.PlayerState.ENDED})
 	}
 }
 
@@ -115,10 +124,10 @@ async function initNewPlayer() {
 		height: '100%',
 		width: '100%',
 		videoId: '',
-		controls: 0, // Hide controls
-		disablekb: 1, // disable keyboard controls
-		iv_load_policy: 3, // Disable video annotations
-		rel: 0, // Do not suggest next video after video ended
+		playerVars: {
+			iv_load_policy: 3, // Disable video annotations
+			rel: 0, // After video ended, suggest only videos from the same channel (suggestions cannot be disabled)
+		},
 		events: {
 			'onReady': ()=>isReady=true,
 			'onStateChange': onYouTubeEventStateChange,
@@ -127,7 +136,12 @@ async function initNewPlayer() {
 	})
 	player.container = div // Keep a reference to the container, to remove it when destroying the player
 
-	await waitUntilTrue(() => isReady)
+	if(!await waitUntilTrue(() => isReady)) {
+		// Player not ready: remove it (a new one will be created on next shift)
+		player.container.remove()
+		toast('Youtube player loading timeout', 'toast-err')
+		throw new Error('Youtube player loading timeout')
+	}
 
 	return player
 }
@@ -136,6 +150,7 @@ function destroyPlayer(player) {
 	player.container.remove()
 }
 async function loadNextVideo(player) {
+	player.isLoading = true // Loading errors are handled here, not by onYoutubeErrorEvent
 	const _pickNextToPlayer = async () => {
 		player.errCode = undefined
 		player.errMessage = undefined
@@ -143,7 +158,7 @@ async function loadNextVideo(player) {
 		if(!vid) return vid
 		player.cueVideoById(vid)
 		if(!await waitUntilTrue(() => (player.errCode > 0) || (player?.playerInfo?.videoData?.video_id === vid))) {
-			player.errCode = 0
+			player.errCode = YT_ERRORS.LOADING_TIMEOUT
 			player.errMessage = 'Loading timeout'
 		}
 		return vid
@@ -153,13 +168,14 @@ async function loadNextVideo(player) {
 	let vid_id = null
 	while((vid_id = await _pickNextToPlayer()) && player.errCode) {
 		tries++
-		const isToBeRemoved = [2, 100, 150].indexOf(player.errCode) >= 0
+		// Remove only invalid ids: other errors may be temporary (video set back to public, embedding allowed again...)
+		const isToBeRemoved = player.errCode === YT_ERRORS.INVALID_PARAM
 		if(player !== PLAYERS.future) {
-			toast(`<span style="font-family:monospace;">yt:${vid_id}</span> ${isToBeRemoved ? 'removed' : 'skipped'}: ${player.errMessage}.<br/>Loading another video...`, '', player.getIframe().parentElement, 2000)
+			toast(`<span style="font-family:monospace;">yt:${escapeHtml(vid_id)}</span> ${isToBeRemoved ? 'removed' : 'skipped'}: ${player.errMessage}.<br/>Loading another video...`, '', player.getIframe().parentElement, 2000)
 		}
 		if(isToBeRemoved) {
 			if(player === PLAYERS.future) {
-				toast(`<span style="font-family:monospace;">yt:${vid_id}</span> removed: ${player.errMessage}`, '', null, 2000)
+				toast(`<span style="font-family:monospace;">yt:${escapeHtml(vid_id)}</span> removed: ${player.errMessage}`, '', null, 2000)
 			}
 			MODL.removeVideo(vid_id)
 		} else {
@@ -168,17 +184,19 @@ async function loadNextVideo(player) {
 	}
 
 	if(!vid_id) {
+		player.isLoading = false
 		toast('No more available video to be loaded', 'toast-err', player !== PLAYERS.future ? player.getIframe().parentElement : null)
 		return null
 	}
 
 	if(tries > 1 && player !== PLAYERS.future) {
 		// Defer toast by 1/2s for UX reasons, after previous "failed to load" displayed toasts
-		setTimeout(()=>toast(`<span style="font-family:monospace;">yt:${vid_id}</span> successfuly loaded`, 'toast-ok', player.getIframe().parentElement, 2000), 500)
+		setTimeout(()=>toast(`<span style="font-family:monospace;">yt:${escapeHtml(vid_id)}</span> successfuly loaded`, 'toast-ok', player.getIframe().parentElement, 2000), 500)
 	}
 
 	// update MODL info
 	MODL.setInfodata(vid_id, player.getVideoData().title, player.getDuration())
+	player.isLoading = false
 	return vid_id
 }
 function applyVote(keepCombo=false) {
@@ -200,8 +218,13 @@ function applyVote(keepCombo=false) {
 }
 let __isShifting = false
 async function shiftVids(shiftRightVid=false, keepCombo=false) {
-	// If not enough candidates, or already shifting: cancel
-	if(!MODL.isReady() || __isShifting) {
+	// Already shifting: cancel
+	if(__isShifting) {
+		return
+	}
+	// If not enough candidates: cancel
+	if(!MODL.isReady()) {
+		toast('Not enough playable videos (at least 4 are needed)', 'toast-err')
 		return
 	}
 	__isShifting = true
@@ -333,7 +356,7 @@ function loadFile() {
 			} else {
 				toast(`No new video listed (total: ${total})`, 'toast-err')
 			}
-			if(!wasReady && MODL.isReady) {
+			if(!wasReady && MODL.isReady()) {
 				shiftVids()
 			}
 			updateRankingDiv()
@@ -355,7 +378,7 @@ function addFromTextInput() {
 		} else {
 			toast(`No new video listed (${total} listed)`, 'toast-err')
 		}
-		if(!wasReady && MODL.isReady) {
+		if(!wasReady && MODL.isReady()) {
 			shiftVids()
 		}
 		updateRankingDiv()
@@ -370,9 +393,16 @@ function saveFile() {
 	a.href = url
 	a.download = "Nlaylist.tsv"
 	a.click()
-	URL.revokeObjectURL(url)
+	setTimeout(() => URL.revokeObjectURL(url), 1000) // Revoking immediately may cancel the download on some browsers
 }
 function resetList() {
+	// Shift in progress: wait for it to end, so that no video is loaded after the reset
+	if(__isShifting) {
+		toast('Please wait for the next video to be loaded', 'toast-err')
+		return
+	}
+	if(!confirm('Remove all videos from the list? This cannot be undone (except by loading a saved file)')) return
+
 	MODL.reset()
 	for(const player of [PLAYERS.left, PLAYERS.right, PLAYERS.future]) {
 		if(player) destroyPlayer(player)
@@ -399,6 +429,12 @@ function choice(selection) {
 async function skip() {
 	// Shift in progress: players are not in a stable state
 	if(__isShifting) return
+
+	if(!PLAYERS.left || !PLAYERS.right) {
+		// Players not initialized (not enough videos, or player loading failed): try to initialize them
+		shiftVids()
+		return
+	}
 
 	if(PLAYERS.left.getPlayerState() == YT.PlayerState.PLAYING) {
 		Array.from(document.getElementsByClassName('skp')).forEach(e => e.disabled = true)

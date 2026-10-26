@@ -85,10 +85,10 @@ async function updateWholeList(rankingDiv, allVdata, sortedScores) {
 			continue
 		}
 		if(vdata.info && vdata.info.title) {
-			titleCell.innerHTML = `<a href="https://www.youtube.com/watch?v=${vid}" target="_blank" rel="noopener noreferrer">${vdata.info.title}</a>`
+			titleCell.innerHTML = `<a href="https://www.youtube.com/watch?v=${escapeHtml(vid)}" target="_blank" rel="noopener noreferrer">${escapeHtml(vdata.info.title)}</a>`
 			titleCell.classList.remove('vid')
 		} else {
-			titleCell.innerHTML = `Unknown video: <a href="https://www.youtube.com/watch?v=${vid}" target="_blank" rel="noopener noreferrer">yt:${vid}</a>` // Show vid
+			titleCell.innerHTML = `Unknown video: <a href="https://www.youtube.com/watch?v=${escapeHtml(vid)}" target="_blank" rel="noopener noreferrer">yt:${escapeHtml(vid)}</a>` // Show vid
 			titleCell.classList.add('vid')
 		}
 

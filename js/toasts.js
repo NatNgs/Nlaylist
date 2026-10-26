@@ -19,7 +19,7 @@ function toast(message, toastClass, parentDiv, duration=null) {
 	box.querySelector(".toast-progress").style.animationDuration = `${duration}ms`
 	setTimeout(()=>{
 		box.classList.add("closing");
-		setTimeout(() => parentDiv.removeChild(box), 1000)
+		setTimeout(() => box.remove(), 1000)
 	}, duration)
 
 	// Move all previous toast down by this toast height
