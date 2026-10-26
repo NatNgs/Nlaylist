@@ -145,15 +145,21 @@ class PlaylistModel {
 		if(this.#combo.length) {
 			if(this.#combo[0] === id_a && score/this.#comboDir < 0) {
 				this.#combo.reverse().push(id_b)
-			} else if(this.#combo[0] === id_b && score/this.#comboDir < 0) {
+			} else if(this.#combo[0] === id_b && score/this.#comboDir > 0) {
 				this.#combo.reverse().push(id_a)
-				id_a,id_b,score = id_b,id_a // reverse references such as combo array ends with [... id_a, id_b]
+				// reverse references such as combo array ends with [... id_a, id_b]
+				const tmp = id_a
+				id_b = id_a
+				id_a = tmp
 				score *= -1
 			} else if(this.#combo[this.#combo.length-1] === id_a && score/this.#comboDir > 0) {
 				this.#combo.push(id_b)
-			} else if(this.#combo[this.#combo.length-1] === id_b && score/this.#comboDir > 0) {
+			} else if(this.#combo[this.#combo.length-1] === id_b && score/this.#comboDir < 0) {
 				this.#combo.push(id_a)
-				id_a,id_b,score = id_b,id_a // reverse references such as combo array ends with [... id_a, id_b]
+				// reverse references such as combo array ends with [... id_a, id_b]
+				const tmp = id_a
+				id_b = id_a
+				id_a = tmp
 				score *= -1
 			} else {
 				this.#combo.length = 0

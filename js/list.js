@@ -130,7 +130,8 @@ function showHideElements(history) {
 	const index = list.map((d, i) => i).filter(i => list[i].classList.contains('displayed'))
 	for(const displayedIndex of index) {
 		for(let i=displayedIndex-1; i<=displayedIndex+1; i++) {
-			list[i].style.display = ''
+			if(i >= 0 && i < list.length)
+				list[i].style.display = ''
 		}
 	}
 
