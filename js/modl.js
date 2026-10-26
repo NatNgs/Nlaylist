@@ -148,7 +148,7 @@ class PlaylistModel {
 			} else if(this.#combo[0] === id_b && score/this.#comboDir > 0) {
 				this.#combo.reverse().push(id_a)
 				// reverse references such as combo array ends with [... id_a, id_b]
-				const tmp = id_a
+				const tmp = id_b
 				id_b = id_a
 				id_a = tmp
 				score *= -1
@@ -157,7 +157,7 @@ class PlaylistModel {
 			} else if(this.#combo[this.#combo.length-1] === id_b && score/this.#comboDir < 0) {
 				this.#combo.push(id_a)
 				// reverse references such as combo array ends with [... id_a, id_b]
-				const tmp = id_a
+				const tmp = id_b
 				id_b = id_a
 				id_a = tmp
 				score *= -1
@@ -168,6 +168,10 @@ class PlaylistModel {
 		if(!this.#combo.length) {
 			this.#combo.push(id_a, id_b)
 		}
+		// Prevent comparing a video with itself (cycle in preferences): remove previous occurrence of the last added video
+		const lastIndex = this.#combo.length-1
+		const prevIndex = this.#combo.indexOf(this.#combo[lastIndex])
+		if(prevIndex < lastIndex) this.#combo.splice(prevIndex, 1)
 		// --- here, combo array is like [..., id_a, id_b], such as any pair of 2 consecutive elements have been scored in the same direction [a > b > c > ... > id_a > id_b] or [a < b < c < ... < id_a < id_b]
 		this.#comboDir = score // keep track of combo array direction
 
@@ -176,13 +180,13 @@ class PlaylistModel {
 		let upd_b = 0
 		for(let i=this.#combo.length-2; i>=0; i--) {
 			// Iterate from the end of combo array to the beginning, and apply a vote from id_b to every previous combo members (with diminishing effect on older ones)
-			id_a = this.#combo[i]
-			const currElo_a = this.#vdata[id_a].score
+			const vid = this.#combo[i]
+			const currElo_a = this.#vdata[vid].score
 
 			const upd = k * (score - (scoreToProba(currElo_b, currElo_a)-0.5)*2)
-			this.#vdata[id_a].score -= upd
+			this.#vdata[vid].score -= upd
 			upd_b += upd
-			console.debug(id_a, (-upd).toFixed(2))
+			console.debug(vid, (-upd).toFixed(2))
 			k *= .9 // Reduce K by 10% for next combo vote to apply
 		}
 		this.#vdata[id_b].score += upd_b
@@ -197,7 +201,15 @@ class PlaylistModel {
 			this.#vdata[id_b].score = -1
 		}
 
+		// Vote "=": reset combo, so that next vote does not continue it
+		if(score === 0) this.resetCombo()
+
 		this.#callUpdate()
+	}
+
+	resetCombo() {
+		this.#combo.length = 0
+		this.#comboDir = 0
 	}
 
 	removeVideo(vidToRemove, vidToMerge) {
@@ -211,6 +223,10 @@ class PlaylistModel {
 
 		// Remove from history
 		this.history.splice(this.history.indexOf(vidToRemove), 1)
+
+		// Remove from combo (remaining members are still ordered, by transitivity)
+		this.#combo = this.#combo.filter(vid => vid !== vidToRemove)
+		if(this.#combo.length < 2) this.resetCombo()
 
 		// Remove from vdata
 		delete this.#vdata[vidToRemove]

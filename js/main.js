@@ -125,10 +125,15 @@ async function initNewPlayer() {
 			'onError': onYoutubeErrorEvent,
 		},
 	})
+	player.container = div // Keep a reference to the container, to remove it when destroying the player
 
 	await waitUntilTrue(() => isReady)
 
 	return player
+}
+function destroyPlayer(player) {
+	player.destroy()
+	player.container.remove()
 }
 async function loadNextVideo(player) {
 	const _pickNextToPlayer = async () => {
@@ -176,7 +181,7 @@ async function loadNextVideo(player) {
 	MODL.setInfodata(vid_id, player.getVideoData().title, player.getDuration())
 	return vid_id
 }
-function applyVote() {
+function applyVote(keepCombo=false) {
 	const currSelection = getCurrentChoice()
 	const left = PLAYERS.left?.getVideoData()?.video_id
 	const right = PLAYERS.right?.getVideoData()?.video_id
@@ -188,54 +193,55 @@ function applyVote() {
 
 		// Update ranking div
 		updateRankingDiv()
+	} else if(!keepCombo) {
+		// Skip without vote: reset combo
+		MODL.resetCombo()
 	}
 }
-async function shiftVids(shiftRightVid=false) {
-	// If not enough candidates: cancel
-	if(!MODL.isReady()) {
+let __isShifting = false
+async function shiftVids(shiftRightVid=false, keepCombo=false) {
+	// If not enough candidates, or already shifting: cancel
+	if(!MODL.isReady() || __isShifting) {
 		return
 	}
+	__isShifting = true
 
 	// Prevent all actions that may skip again
 	const disabledButtons = Array.from(document.getElementsByClassName('skp'))
 	disabledButtons.forEach(e => e.disabled = true)
 
-	const playersParentDiv = document.getElementById('players')
+	try {
+		if (PLAYERS.right) {
+			applyVote(keepCombo)
+			await handlePlayerShift(shiftRightVid)
+			await updateRankingDiv()
+		}
 
-	if (PLAYERS.right) {
-		applyVote()
-		await handlePlayerShift(playersParentDiv, shiftRightVid)
-		await updateRankingDiv()
+		const autoStarted = await ensureLeftPlayer()
+
+		if (!PLAYERS.right) {
+			await ensureRightPlayer()
+			await updateRankingDiv()
+		}
+
+		updatePlayerUI(autoStarted)
+
+		if (!autoStarted && PLAYERS.left.getPlayerState() !== YT.PlayerState.PLAYING) {
+			PLAYERS.right.playVideo()
+		}
+
+		await preloadFutureVideo()
+	} finally {
+		// Re-enable buttons, once future video is preloaded
+		disabledButtons.forEach(e => e.disabled = false)
+		__isShifting = false
 	}
-
-	const autoStarted = await ensureLeftPlayer()
-
-	if (!PLAYERS.right) {
-		await ensureRightPlayer()
-		await updateRankingDiv()
-	}
-
-	updatePlayerUI(autoStarted)
-
-	if (!autoStarted && PLAYERS.left.getPlayerState() !== YT.PlayerState.PLAYING) {
-		PLAYERS.right.playVideo()
-	}
-
-	// Re-enable buttons
-	disabledButtons.forEach(e => e.disabled = false)
-
-	await preloadFutureVideo()
 }
 
-async function handlePlayerShift(parentDiv, shiftRight) {
+async function handlePlayerShift(shiftRight) {
 	const playerToRemove = shiftRight ? PLAYERS.right : PLAYERS.left
 	if (playerToRemove) {
-		playerToRemove.destroy()
-	}
-
-	const indexToRemove = shiftRight ? 1 : 0
-	if (parentDiv.children[indexToRemove]) {
-		parentDiv.removeChild(parentDiv.children[indexToRemove])
+		destroyPlayer(playerToRemove)
 	}
 
 	if (!shiftRight) {
@@ -294,11 +300,11 @@ function updatePlayerUI() {
 
 async function preloadFutureVideo() {
 	if (PLAYERS.future) {
-		PLAYERS.future.destroy()
+		destroyPlayer(PLAYERS.future)
 	}
 
 	PLAYERS.future = await initNewPlayer()
-	loadNextVideo(PLAYERS.future)
+	await loadNextVideo(PLAYERS.future)
 }
 
 
@@ -368,8 +374,9 @@ function saveFile() {
 }
 function resetList() {
 	MODL.reset()
-	const playersParentDiv = document.getElementById('players')
-	playersParentDiv.innerHTML = ''
+	for(const player of [PLAYERS.left, PLAYERS.right, PLAYERS.future]) {
+		if(player) destroyPlayer(player)
+	}
 	PLAYERS.left = null
 	PLAYERS.right = null
 	PLAYERS.future = null
@@ -390,16 +397,20 @@ function choice(selection) {
 }
 
 async function skip() {
+	// Shift in progress: players are not in a stable state
+	if(__isShifting) return
+
 	if(PLAYERS.left.getPlayerState() == YT.PlayerState.PLAYING) {
 		Array.from(document.getElementsByClassName('skp')).forEach(e => e.disabled = true)
 		// Left video is playing: launch right video
 		setTimeout(()=>Array.from(document.getElementsByClassName('skp')).forEach(e => e.disabled = false), 1000)
+		PLAYERS.left.stopVideo()
+		PLAYERS.right.playVideo()
 	} else {
-		// Left video isn'nt playing: do shift
+		// Left video isn'nt playing: stop right video (it becomes the left one), then do shift (it plays the new right video)
+		PLAYERS.right.stopVideo()
 		shiftVids()
 	}
-	PLAYERS.left.stopVideo()
-	PLAYERS.right.playVideo()
 }
 
 function toggleAdvancedControls() {
@@ -414,15 +425,15 @@ function toggleAdvancedControls() {
 function mergeRight() {
 	choice(null)
 	MODL.removeVideo(PLAYERS.left.getVideoData().video_id, PLAYERS.right.getVideoData().video_id)
-	shiftVids(false)
+	shiftVids(false, true)
 }
 function mergeLeft() {
 	choice(null)
 	MODL.removeVideo(PLAYERS.right.getVideoData().video_id, PLAYERS.left.getVideoData().video_id)
-	shiftVids(true)
+	shiftVids(true, true)
 }
 function removeRight() {
 	choice(null)
 	MODL.removeVideo(PLAYERS.right.getVideoData().video_id)
-	shiftVids(true)
+	shiftVids(true, true)
 }
