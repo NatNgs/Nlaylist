@@ -26,6 +26,12 @@ class PlaylistModel {
 			this.#vdata = {}
 		}
 
+		// Repair invalid scores (NaN is stored as null in localStorage): consider these videos as never compared
+		for(const vid in this.#vdata) {
+			if(!Number.isFinite(this.#vdata[vid].score)) this.#vdata[vid].score = 0
+			if(!Number.isFinite(this.#vdata[vid].lastScore)) this.#vdata[vid].lastScore = this.#vdata[vid].score
+		}
+
 		try {
 			this.history = JSON.parse(localStorage[STORAGE_PREFIX + 'history'])
 		} catch(e) {
@@ -80,28 +86,25 @@ class PlaylistModel {
 	}
 
 	addVid(url, score=0) {
-		/** extract id from url (always 11 char length)
+		/** extract id (always 11 char length) from id or url, and return it (null if none found)
 		 * Possible forms are:
+		 * - <id>
 		 * - http(s)://website.xxx/...?v=<id>&...
 		 * - http(s)://website.xxx/...?...&v=<id>&...
-		 * - http(s)://website.xxx/<id>
+		 * - http(s)://youtu.be/<id>
+		 * - http(s)://website.xxx/embed/<id> (also /shorts/<id>, /live/<id> and /v/<id>)
 		 */
-		let vid = null;
-		if(url.length === 11) {
-			vid = url
-		} else {
-			let match = url.match(/(?:[^/]+\/)*([a-zA-Z0-9_-]{11})/)
-			if(match && match.length > 1)
-				vid = match[1]
-			else {
-				// Extract url params, and find parameter "v"
-				match = url.match(/[?&]v=([a-zA-Z0-9_-]{11})/)
-				if(match && match.length > 1)
-					vid = [1]
-			}
-		}
-		if(!vid) return // failed to extract vid
-		if(this.#vdata[vid]) return // vid already in vids: ignore
+		url = url.trim()
+		const match = url.match(/^([a-zA-Z0-9_-]{11})$/)
+			|| url.match(/[?&]v=([a-zA-Z0-9_-]{11})(?![a-zA-Z0-9_-])/)
+			|| url.match(/youtu\.be\/([a-zA-Z0-9_-]{11})(?![a-zA-Z0-9_-])/)
+			|| url.match(/\/(?:embed|shorts|live|v)\/([a-zA-Z0-9_-]{11})(?![a-zA-Z0-9_-])/)
+		if(!match) return null // failed to extract vid
+		const vid = match[1]
+		if(this.#vdata[vid]) return vid // vid already in vids: ignore
+
+		// Invalid score (ex: not a number in a loaded file): consider video as never compared
+		if(!Number.isFinite(score)) score = 0
 
 		this.#vdata[vid] = {score: score, lastScore: score}
 
@@ -109,6 +112,7 @@ class PlaylistModel {
 		if(!this.history.includes(vid)) this.history.push(vid)
 
 		this.#callUpdate()
+		return vid
 	}
 
 	#callUpdate() {
@@ -253,12 +257,15 @@ class PlaylistModel {
 			// Merge vdata
 			this.#vdata[vidToMerge].score += this.#vdata[vidToRemove].score
 			if(!this.#vdata[vidToMerge].merged) this.#vdata[vidToMerge].merged = []
-			if(vidToRemove.info) this.#vdata[vidToMerge].merged.push(vidToRemove.info)
-			if(vidToRemove.merged) this.#vdata[vidToMerge].merged.push(...vidToRemove.merged)
+			this.#vdata[vidToMerge].merged.push(this.#vdata[vidToRemove].info || {video_id: vidToRemove})
+			if(this.#vdata[vidToRemove].merged) this.#vdata[vidToMerge].merged.push(...this.#vdata[vidToRemove].merged)
 		}
 
 		// Remove from history
 		this.#removeFromHistory(vidToRemove)
+
+		// Remove from unplayable
+		this.#unplayable = this.#unplayable.filter(vid => vid !== vidToRemove)
 
 		// Remove from combo (remaining members are still ordered, by transitivity)
 		this.#combo = this.#combo.filter(vid => vid !== vidToRemove)
@@ -284,13 +291,12 @@ class PlaylistModel {
 		const numberWas = Object.keys(this.getScores()).length
 
 		// Parse text such as every line is "<video url>" or "<video url> <score>". Ignore other lines
-		const rows = tsv.split('\n')
+		const rows = tsv.split(/\r?\n/)
 		for(const r of rows) {
 			const parts = r.split('\t')
-			const vid = parts[0]
 			const score = (parts.length >= 2) ? Number.parseInt(parts[1] || 0) : 0
-			this.addVid(vid, score)
-			if(parts.length >= 3) {
+			const vid = this.addVid(parts[0], score)
+			if(vid && parts.length >= 3) {
 				this.setInfodata(vid, parts[2], (parts.length >= 4) ? Number.parseInt(parts[3]) : null)
 			}
 		}
@@ -318,7 +324,7 @@ class PlaylistModel {
 		let scoresSum = 0
 		let repartCount = 0
 		for(const score of Object.values(scores)) {
-			if(score !== 0) {
+			if(Number.isFinite(score) && score !== 0) {
 				repartCount++
 				scoresSum += score
 			}
@@ -333,7 +339,7 @@ class PlaylistModel {
 			// Keep 0 scored video to 0 (never compared ones), and prevent others to become 0 (to not mark them back as never compared)
 			// Not ideal, but no need to be perfect, this is close enough with minimal code
 			const actualScore = scores[vid]
-			const isCompared = actualScore !== 0
+			const isCompared = Number.isFinite(actualScore) && actualScore !== 0 // Invalid scores are exported as never compared
 			let normalizedScore = isCompared ? actualScore - scoresSum/repartCount : 0
 			if(isCompared && normalizedScore > -1 && normalizedScore < 0) normalizedScore = -1
 			else if(isCompared && normalizedScore >= 0 && normalizedScore < 1) normalizedScore = 1
