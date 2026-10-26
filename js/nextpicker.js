@@ -21,8 +21,8 @@ function pure_random(vids) {
 }
 
 function weighted_random(vids, vdata, history) {
-	// Weight them all (weight = scoreToProba(currScore, 0))
-	const weights = vids.map(vid => scoreToProba(vdata[vid].score, 0)**2)
+	// Weight them all (weight = chance to be preferred to an average video, squared)
+	const weights = vids.map(vid => (SCORING.points(vdata[vid])/100)**2)
 
 	// Give oldest video in history a significant weight boost
 	const historyIndexes = vids.map(vid => history.indexOf(vid))
@@ -55,8 +55,8 @@ function ordered(vids, vdata, history) {
 	// Sum ranks to weights
 	const weights = vids.map(vid => [vid,
 		byScores.indexOf(vid) // The highest score: the more chance to be picked
-		+ (vdata[vid].score === 0 && vdata[vid].info === undefined
-			? 0 // Score is 0 and no info: increase chances to be picked
+		+ (!SCORING.isCompared(vdata[vid]) && vdata[vid].info === undefined
+			? 0 // Never compared and no info: increase chances to be picked
 			: history.length - 1 - history.indexOf(vid) // The older in history (the later in history array): the more it will be picked
 		)
 		+ Math.random() // Randomize if same score

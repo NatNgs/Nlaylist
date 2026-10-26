@@ -1,14 +1,10 @@
 // Utils
-const ELO_BASE = 400
-const ELO_K = 33
 const STORAGE_PREFIX = 'nlaylist.' // localStorage is shared by all pages of the same origin
-function scoreToProba(eloA, eloB) {
-	return 1 / (1 + Math.pow(10, (eloB - eloA) / ELO_BASE))
-}
+const TSV_HEADER = ['#nlaylist', 'v2', 'elo'] // First line of saved files (file format)
 
 // Model
 class PlaylistModel {
-	#vdata // vid : {score: <score>, lastScore: <lastScore>, info: {youtube video info}}
+	#vdata // vid : {<score data (see SCORING)>, info: {youtube video info}, merged: [info of merged videos]}
 	#unplayable // [vid, vid, ...]
 	#combo // [vid, vid, ...]
 	#comboDir // -1, 0, 1
@@ -26,11 +22,9 @@ class PlaylistModel {
 			this.#vdata = {}
 		}
 
-		// Repair invalid scores (NaN is stored as null in localStorage): consider these videos as never compared
-		for(const vid in this.#vdata) {
-			if(!Number.isFinite(this.#vdata[vid].score)) this.#vdata[vid].score = 0
-			if(!Number.isFinite(this.#vdata[vid].lastScore)) this.#vdata[vid].lastScore = this.#vdata[vid].score
-		}
+		// Repair invalid scores, and keep average score at 0
+		for(const vid in this.#vdata) SCORING.repair(this.#vdata[vid])
+		SCORING.recenter(Object.values(this.#vdata))
 
 		try {
 			this.history = JSON.parse(localStorage[STORAGE_PREFIX + 'history'])
@@ -85,8 +79,9 @@ class PlaylistModel {
 		return Object.keys(this.#vdata).filter(vid => !this.#unplayable.includes(vid)).length > 3
 	}
 
-	addVid(url, score=0) {
+	addVid(url, scoreData=null) {
 		/** extract id (always 11 char length) from id or url, and return it (null if none found)
+		 * scoreData: score of the new video (see SCORING), never compared if not given
 		 * Possible forms are:
 		 * - <id>
 		 * - http(s)://website.xxx/...?v=<id>&...
@@ -103,10 +98,7 @@ class PlaylistModel {
 		const vid = match[1]
 		if(this.#vdata[vid]) return vid // vid already in vids: ignore
 
-		// Invalid score (ex: not a number in a loaded file): consider video as never compared
-		if(!Number.isFinite(score)) score = 0
-
-		this.#vdata[vid] = {score: score, lastScore: score}
+		this.#vdata[vid] = scoreData || SCORING.newScore()
 
 		// Add last to history if not yet in it
 		if(!this.history.includes(vid)) this.history.push(vid)
@@ -177,7 +169,7 @@ class PlaylistModel {
 		const out = {}
 		for(const v in this.#vdata)
 			if(!this.#unplayable.includes(v))
-				out[v] = {score: this.#vdata[v].score, lastScore: this.#vdata[v].lastScore, info: this.#vdata[v].info}
+				out[v] = {...this.#vdata[v]}
 		return out
 	}
 
@@ -215,31 +207,10 @@ class PlaylistModel {
 		// --- here, combo array is like [..., id_a, id_b], such as any pair of 2 consecutive elements have been scored in the same direction [a > b > c > ... > id_a > id_b] or [a < b < c < ... < id_a < id_b]
 		this.#comboDir = score // keep track of combo array direction
 
-		const currElo_b = this.#vdata[id_b].score
-		let k = ELO_K
-		let upd_b = 0
-		for(let i=this.#combo.length-2; i>=0; i--) {
-			// Iterate from the end of combo array to the beginning, and apply a vote from id_b to every previous combo members (with diminishing effect on older ones)
-			const vid = this.#combo[i]
-			const currElo_a = this.#vdata[vid].score
-
-			const upd = k * (score - (scoreToProba(currElo_b, currElo_a)-0.5)*2)
-			this.#vdata[vid].score -= upd
-			upd_b += upd
-			console.debug(vid, (-upd).toFixed(2))
-			k *= .9 // Reduce K by 10% for next combo vote to apply
-		}
-		this.#vdata[id_b].score += upd_b
-		console.debug(id_b, upd_b.toFixed(2))
-
-		// Videos scored 0 are considered 'never compared yet'
-		// If any comparison have been made, score should not be 0 again. Set it to -1 instead
-		if(this.#vdata[id_a].score === 0) {
-			this.#vdata[id_a].score = -1
-		}
-		if(this.#vdata[id_b].score === 0) {
-			this.#vdata[id_b].score = -1
-		}
+		// Apply a vote from id_b to every previous combo members, from the end of combo array to the beginning (id_a first)
+		const opponents = this.#combo.slice(0, -1).reverse()
+		SCORING.applyVote(this.#vdata[id_b], opponents.map(vid => this.#vdata[vid]), score)
+		console.debug('Vote', score, id_b, 'against', opponents)
 
 		// Vote "=": reset combo, so that next vote does not continue it
 		if(score === 0) this.resetCombo()
@@ -255,7 +226,7 @@ class PlaylistModel {
 	removeVideo(vidToRemove, vidToMerge) {
 		if(vidToMerge) {
 			// Merge vdata
-			this.#vdata[vidToMerge].score += this.#vdata[vidToRemove].score
+			SCORING.merge(this.#vdata[vidToMerge], this.#vdata[vidToRemove])
 			if(!this.#vdata[vidToMerge].merged) this.#vdata[vidToMerge].merged = []
 			this.#vdata[vidToMerge].merged.push(this.#vdata[vidToRemove].info || {video_id: vidToRemove})
 			if(this.#vdata[vidToRemove].merged) this.#vdata[vidToMerge].merged.push(...this.#vdata[vidToRemove].merged)
@@ -290,14 +261,26 @@ class PlaylistModel {
 	addFromTSV(tsv) {
 		const numberWas = Object.keys(this.getScores()).length
 
-		// Parse text such as every line is "<video url>" or "<video url> <score>". Ignore other lines
-		const rows = tsv.split(/\r?\n/)
+		// First line is the file format header (see TSV_HEADER). Files without header use the legacy format
+		const rows = tsv.replace(/^\uFEFF/, '').split(/\r?\n/)
+		const header = rows[0].startsWith(TSV_HEADER[0]) ? rows.shift().split('\t') : null
+		if(header && (header[1] !== TSV_HEADER[1] || header[2] !== TSV_HEADER[2])) {
+			throw new Error(`Unsupported file format: ${header.slice(1).join(' ')}`)
+		}
+
+		// Parse text such as every line is "<video url> <title> <duration> <score columns>" (legacy format: "<video url> <score> <title> <duration>"). Ignore other lines
 		for(const r of rows) {
 			const parts = r.split('\t')
-			const score = (parts.length >= 2) ? Number.parseInt(parts[1] || 0) : 0
-			const vid = this.addVid(parts[0], score)
-			if(vid && parts.length >= 3) {
-				this.setInfodata(vid, parts[2], (parts.length >= 4) ? Number.parseInt(parts[3]) : null)
+			if(header) {
+				const vid = this.addVid(parts[0], SCORING.fromTSV(parts.slice(3)))
+				if(vid && (parts[1] || parts[2])) {
+					this.setInfodata(vid, parts[1], Number.parseInt(parts[2]) || null)
+				}
+			} else {
+				const vid = this.addVid(parts[0], SCORING.fromLegacyTSV(parts[1]))
+				if(vid && parts.length >= 3) {
+					this.setInfodata(vid, parts[2], (parts.length >= 4) ? Number.parseInt(parts[3]) : null)
+				}
 			}
 		}
 
@@ -305,10 +288,8 @@ class PlaylistModel {
 		return numberIs - numberWas
 	}
 	exportToTSV() {
-		// export MODL data as text as "<vid>\t<rounded score>"
-		let text = []
-		const scores = this.getScores(true)
-		const sortedScores = Object.keys(scores).filter(vid => !this.#unplayable.includes(vid))
+		// export MODL data as text: header, then "<vid> \t <title> \t <duration> \t <score columns>"
+		const sortedScores = Object.keys(this.#vdata).filter(vid => !this.#unplayable.includes(vid))
 
 		// Sort according to history
 		sortedScores.sort((a, b) => {
@@ -321,33 +302,21 @@ class PlaylistModel {
 		sortedScores.splice((sortedScores.length/2) |0, 0, ...this.#unplayable)
 
 		// Normalize scores (to make average score go toward 0)
-		let scoresSum = 0
-		let repartCount = 0
-		for(const score of Object.values(scores)) {
-			if(Number.isFinite(score) && score !== 0) {
-				repartCount++
-				scoresSum += score
-			}
-		}
-		console.debug('Score total deviation from 0:', scoresSum)
+		const offset = SCORING.averageScore(Object.values(this.#vdata))
+		console.debug('Score average deviation from 0:', offset)
 
 		// Extract scores
-		for(const vid of sortedScores) {
+		const text = sortedScores.map(vid => {
 			const infodata = this.getInfodata(vid)
-
-			// Apply score normalization toward average score=0
-			// Keep 0 scored video to 0 (never compared ones), and prevent others to become 0 (to not mark them back as never compared)
-			// Not ideal, but no need to be perfect, this is close enough with minimal code
-			const actualScore = scores[vid]
-			const isCompared = Number.isFinite(actualScore) && actualScore !== 0 // Invalid scores are exported as never compared
-			let normalizedScore = isCompared ? actualScore - scoresSum/repartCount : 0
-			if(isCompared && normalizedScore > -1 && normalizedScore < 0) normalizedScore = -1
-			else if(isCompared && normalizedScore >= 0 && normalizedScore < 1) normalizedScore = 1
-			else normalizedScore = Math.round(normalizedScore)
-
-			text.push([vid, normalizedScore || '', infodata.title || '', infodata.duration || ''])
-		}
-		return text.map(row => row.join('\t').replace(/[ \t]+$/,'')).join('\n')
+			const title = (infodata.title || '').replace(/[\t\r\n]+/g, ' ') // Keep file format
+			return [
+				vid,
+				title,
+				infodata.duration || '',
+				...SCORING.toTSV(this.#vdata[vid], offset)
+			].join('\t').replace(/[ \t]+$/,'')
+		}).join('\n')
+		return TSV_HEADER.join('\t') + '\n' + text
 	}
 
 	reset() {

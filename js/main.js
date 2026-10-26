@@ -300,7 +300,7 @@ async function ensureRightPlayer() {
 }
 
 function updatePlayerUI() {
-	const currScores = MODL.getScores()
+	const vdata = MODL.vdata
 
 	const leftIframe = PLAYERS.left?.getIframe()
 	const rightIframe = PLAYERS.right?.getIframe()
@@ -310,15 +310,13 @@ function updatePlayerUI() {
 	const linfo = leftIframe.parentElement.querySelector('.vidInfo')
 	const rinfo = rightIframe.parentElement.querySelector('.vidInfo')
 
-	const leftId = PLAYERS.left.getVideoData().video_id
-	const rightId = PLAYERS.right.getVideoData().video_id
+	const left = vdata[PLAYERS.left.getVideoData().video_id] || SCORING.newScore()
+	const right = vdata[PLAYERS.right.getVideoData().video_id] || SCORING.newScore()
 
-	const probaLeft = scoreToProba(currScores[leftId] || 0, currScores[rightId] || 0)
-	const eloLeft = Math.round(currScores[leftId] || 0) + 1000
-	const eloRight = Math.round(currScores[rightId] || 0) + 1000
+	const probaLeft = SCORING.proba(left, right)
 
-	if (linfo) linfo.innerText = `Preference: ${Math.round(100 * probaLeft)}% (ELO: ${eloLeft})`
-	if (rinfo) rinfo.innerText = `Preference: ${Math.round(100 * (1 - probaLeft))}% (ELO: ${eloRight})`
+	if (linfo) linfo.innerText = `Preference: ${Math.round(100 * probaLeft)}% (${SCORING.describe(left)})`
+	if (rinfo) rinfo.innerText = `Preference: ${Math.round(100 * (1 - probaLeft))}% (${SCORING.describe(right)})`
 }
 
 async function preloadFutureVideo() {
@@ -349,7 +347,13 @@ function loadFile() {
 		const reader = new FileReader()
 		reader.onload = () => {
 			const wasReady = MODL.isReady()
-			const added = MODL.addFromTSV(reader.result)
+			let added
+			try {
+				added = MODL.addFromTSV(reader.result)
+			} catch(e) {
+				toast(escapeHtml(e.message), 'toast-err') // Unsupported file format
+				return
+			}
 			const total = Object.keys(MODL.getScores()).length
 			if(added) {
 				toast(`${added} new videos listed (total: ${total})`, 'toast-ok')

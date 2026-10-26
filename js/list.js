@@ -31,7 +31,7 @@ async function updateWholeList(rankingDiv, allVdata, sortedScores) {
 
 		// Get div by id, or create new one if none found
 		let div = document.getElementById(id)
-		let updCell, scoreCell, titleCell
+		let updCell, scoreCell, certaintyCell, titleCell
 		if(!div) {
  			div = document.createElement('div')
 			div.id = id
@@ -45,18 +45,24 @@ async function updateWholeList(rankingDiv, allVdata, sortedScores) {
 			scoreCell.classList.add('score')
 			div.appendChild(scoreCell)
 
+			certaintyCell = document.createElement('div')
+			certaintyCell.classList.add('certainty')
+			certaintyCell.title = 'Certainty of the score'
+			div.appendChild(certaintyCell)
+
 			titleCell = document.createElement('div')
 			titleCell.classList.add('title')
 			div.appendChild(titleCell)
 		} else {
 			updCell = div.querySelector('.upd')
 			scoreCell = div.querySelector('.score')
+			certaintyCell = div.querySelector('.certainty')
 			titleCell = div.querySelector('.title')
 		}
 
-		// Display current score as % chance of win against score 0
-		const currPct = 100*scoreToProba(vdata.score, 0)
-		scoreCell.innerHTML = (Math.round(currPct) + ' pts')
+		// Display current score as % chance of win against average score
+		scoreCell.innerHTML = (Math.round(SCORING.points(vdata)) + ' pts')
+		certaintyCell.innerHTML = (Math.round(100*SCORING.certainty(vdata)) + '%')
 
 		// If vid is left or right: highlight the title
 		if(vid === PLAYERS.left?.getVideoData()?.video_id) {
@@ -68,7 +74,7 @@ async function updateWholeList(rankingDiv, allVdata, sortedScores) {
 		}
 
 		// Compare last score with current score
-		let scoreDiff = Math.round(200*scoreToProba(vdata.score, vdata.lastScore) - 100)
+		let scoreDiff = Math.round(SCORING.evolution(vdata))
 
 		if(scoreDiff < 0) {
 			updCell.innerHTML = '▼ ' + ('-' + (-scoreDiff)).padStart(3, ' ').replaceAll(/ /g, '&nbsp;') + '%'
@@ -80,7 +86,7 @@ async function updateWholeList(rankingDiv, allVdata, sortedScores) {
 			updCell.innerHTML = ''
 		}
 
-		if(vdata.score == 0) {
+		if(!SCORING.isCompared(vdata)) {
 			unscored += 1
 			continue
 		}
