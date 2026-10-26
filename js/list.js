@@ -1,7 +1,11 @@
 
 async function updateList(rankingDiv, allVdata, history) {
+	// Sort by score brought back toward the average depending on its uncertainty (see SCORING.rankValue)
+	const spread = SCORING.scoreSpread(Object.values(allVdata))
+	const rankValues = {}
+	for(const vid in allVdata) rankValues[vid] = SCORING.rankValue(allVdata[vid], spread)
 	const sortedScores = Object.keys(allVdata)
-	sortedScores.sort((a, b) => allVdata[b].score - allVdata[a].score || (b > a ? -1 : 1))
+	sortedScores.sort((a, b) => rankValues[b] - rankValues[a] || (b > a ? -1 : 1))
 
 	await updateWholeList(rankingDiv, allVdata, sortedScores)
 
@@ -33,7 +37,7 @@ async function updateWholeList(rankingDiv, allVdata, sortedScores) {
 
 		// Get div by id, or create new one if none found
 		let div = document.getElementById(id)
-		let updCell, scoreCell, uncertaintyCell, titleCell
+		let updCell, scoreCell, titleCell
 		if(!div) {
  			div = document.createElement('div')
 			div.id = id
@@ -47,24 +51,17 @@ async function updateWholeList(rankingDiv, allVdata, sortedScores) {
 			scoreCell.classList.add('score')
 			div.appendChild(scoreCell)
 
-			uncertaintyCell = document.createElement('div')
-			uncertaintyCell.classList.add('uncertainty')
-			uncertaintyCell.title = 'Uncertainty of the points'
-			div.appendChild(uncertaintyCell)
-
 			titleCell = document.createElement('div')
 			titleCell.classList.add('title')
 			div.appendChild(titleCell)
 		} else {
 			updCell = div.querySelector('.upd')
 			scoreCell = div.querySelector('.score')
-			uncertaintyCell = div.querySelector('.uncertainty')
 			titleCell = div.querySelector('.title')
 		}
 
-		// Display current score as % chance of win against average score
-		scoreCell.innerHTML = (Math.round(SCORING.points(vdata)) + ' pts')
-		uncertaintyCell.innerHTML = ('+/- ' + Math.ceil(SCORING.pointsMargin(vdata)))
+		// Display current score as % chance of win against average score, and its margin
+		scoreCell.innerHTML = SCORING.describe(vdata, ' pts')
 
 		// If vid is left or right: highlight the title
 		if(vid === PLAYERS.left?.videoId) {
@@ -88,7 +85,8 @@ async function updateWholeList(rankingDiv, allVdata, sortedScores) {
 		updCell.classList.toggle('red', scoreDiff < 0)
 		updCell.classList.toggle('green', scoreDiff > 0)
 
-		if(!SCORING.isCompared(vdata)) {
+		// Never compared videos are listed only while displayed in a player
+		if(!SCORING.isCompared(vdata) && !div.classList.contains('displayed')) {
 			unscored += 1
 			continue
 		}

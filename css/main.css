@@ -32,6 +32,12 @@ body {
 	text-align: center;
 }
 
+/* Margin of error of a score (under players and in ranking) */
+.margin {
+	color: gray;
+	font-size: 85%;
+}
+
 
 /* ******* */
 /* ACTIONS */
@@ -97,7 +103,7 @@ button:hover {
 
 .rankingItem {
 	display: grid;
-	grid-template-columns: 4em 4em 4em auto;
+	grid-template-columns: 4em 7em auto;
 	grid-column-gap: 0.125em;
 	margin: 0.25em;
 	margin-right: 1.25em;
@@ -107,11 +113,8 @@ button:hover {
 	padding: 0.125em;
 	transition: background-color 1s, opacity 1s;
 }
-.rankingItem .score, .rankingItem .uncertainty {
+.rankingItem .score {
 	text-align: right;
-}
-.rankingItem .uncertainty {
-	color: #444;
 }
 .rankingItem .vid {
 	color: #666;
@@ -141,7 +144,7 @@ button:hover {
 	background-color: #FF8;
 }
 #ranking_unranked .title {
-	grid-column-start: 4;
+	grid-column-start: 3;
 	color: #444;
 	font-style: italic;
 	background-color: #8CA;

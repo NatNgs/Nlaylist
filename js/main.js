@@ -44,7 +44,7 @@ function onYouTubeEventStateChange(evt) {
 		if(thisPlayer === PLAYERS.left) {
 			PLAYERS.right.playVideo()
 		} else if(thisPlayer === PLAYERS.right) {
-			shiftVids()
+			shiftVids(false, false, true) // Right video ended (or failed while playing): play the new right video
 		}
 	}
 }
@@ -90,6 +90,7 @@ function onYoutubeErrorEvent(evt) {
 
 	// Error out of loading (while playing): continue as if video ended
 	if(!thisPlayer.isLoading) {
+		thisPlayer.stopVideo()
 		onYouTubeEventStateChange({target: thisPlayer, data: YT.PlayerState.ENDED})
 	}
 }
@@ -220,7 +221,10 @@ async function loadNextVideo(player) {
 
 	// update MODL info (title received later)
 	MODL.setInfodata(vid_id, null, player.getDuration())
-	fetchVideoTitle(vid_id).then(title => MODL.setInfodata(vid_id, title, null))
+	fetchVideoTitle(vid_id).then(title => {
+		MODL.setInfodata(vid_id, title, null)
+		if(title) updateRankingDiv() // Displayed video may be listed without title
+	})
 	player.isLoading = false
 	return vid_id
 }
@@ -239,7 +243,7 @@ function applyVote(keepCombo=false) {
 	}
 }
 let __isShifting = false
-async function shiftVids(shiftRightVid=false, keepCombo=false) {
+async function shiftVids(shiftRightVid=false, keepCombo=false, playRight=false) {
 	// Already shifting: cancel
 	if(__isShifting) {
 		return
@@ -271,7 +275,8 @@ async function shiftVids(shiftRightVid=false, keepCombo=false) {
 
 		updatePlayerUI(autoStarted)
 
-		if (!autoStarted && PLAYERS.left.getPlayerState() !== YT.PlayerState.PLAYING) {
+		// playRight: left video has just been stopped, its state is updated asynchronously by the Youtube API
+		if (!autoStarted && (playRight || PLAYERS.left.getPlayerState() !== YT.PlayerState.PLAYING)) {
 			PLAYERS.right.playVideo()
 		}
 
@@ -337,8 +342,8 @@ function updatePlayerUI() {
 
 	const probaLeft = SCORING.proba(left, right)
 
-	if (linfo) linfo.innerText = `Chance: ${Math.round(100 * probaLeft)}% (${SCORING.describe(left)})`
-	if (rinfo) rinfo.innerText = `Chance: ${Math.round(100 * (1 - probaLeft))}% (${SCORING.describe(right)})`
+	if (linfo) linfo.innerHTML = `Chance: ${Math.round(100 * probaLeft)}% (Score: ${SCORING.describe(left)})`
+	if (rinfo) rinfo.innerHTML = `Chance: ${Math.round(100 * (1 - probaLeft))}% (Score: ${SCORING.describe(right)})`
 }
 
 async function preloadFutureVideo() {
@@ -469,9 +474,9 @@ async function skip() {
 		PLAYERS.left.stopVideo()
 		PLAYERS.right.playVideo()
 	} else {
-		// Left video isn'nt playing: stop right video (it becomes the left one), then do shift (it plays the new right video)
+		// Left video isn'nt playing: stop right video (it becomes the left one), then do shift and play the new right video
 		PLAYERS.right.stopVideo()
-		shiftVids()
+		shiftVids(false, false, true)
 	}
 }
 

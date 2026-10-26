@@ -17,6 +17,7 @@ const SURPRISE_MEMORY = 0.8 // Weight of the previous surprise in the moving ave
 const SURPRISE_VOTE_MAX = 9
 const SURPRISE_THRESHOLD = 1.5 // If surprise goes above this, uncertainty will rise
 const SURPRISE_UNCERTAINTY = 50 // Uncertainty added (quadratically) per surprise unit above 1
+const SPREAD_MIN = 100 // Minimal typical spread of scores, used to sort the ranking while few votes are known
 
 function scoreToProba(eloA, eloB) {
 	return 1 / (1 + Math.pow(10, (eloB - eloA) / ELO_BASE))
@@ -90,9 +91,24 @@ const SCORING = {
 		return 200*scoreToProba(data.score, data.lastScore) - 100
 	},
 
-	// Score description, displayed under players
-	describe(data) {
-		return `Score: ${Math.round(this.points(data))} +/- ${Math.ceil(this.pointsMargin(data))}`
+	// Score description (HTML): points rounded, followed by their margin rounded up
+	describe(data, unit='') {
+		return `${Math.round(this.points(data))}${unit} <span class="margin">± ${Math.ceil(this.pointsMargin(data))}</span>`
+	},
+
+	// Typical spread of scores: dispersion of compared videos scores, weighted by their certainty (1/uncertainty²)
+	scoreSpread(datas) {
+		const compared = datas.filter(data => this.isCompared(data))
+		const weight = compared.reduce((sum, data) => sum + 1/data.uncertainty**2, 0)
+		if(!weight) return SPREAD_MIN
+		const mean = compared.reduce((sum, data) => sum + data.score/data.uncertainty**2, 0) / weight
+		const variance = compared.reduce((sum, data) => sum + (data.score - mean)**2/data.uncertainty**2, 0) / weight
+		return Math.max(SPREAD_MIN, Math.sqrt(variance))
+	},
+
+	// Value to sort the ranking: score brought back toward the average (0) depending on its uncertainty, so that an uncertain video stays near the middle
+	rankValue(data, spread) {
+		return data.score * spread**2 / (spread**2 + data.uncertainty**2)
 	},
 
 	/**

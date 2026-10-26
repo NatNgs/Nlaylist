@@ -8,9 +8,20 @@ Display videos in a chain, asking everytime witch one of the last 2 was preferre
 
 TODO: describe this part
 
-### ELO scoring
+### Scoring: ELO with uncertainty
 
-TODO: describe this part
+Inspired by ELO and Glicko-1, every video has three values, updated after each vote:
+
+- **Score**: ELO score (0 for new videos). Scores are recentered when the page is loaded (average score of compared videos set back to 0)
+- **Uncertainty**: Tracks how far the real score may be from the computed one (standard deviation of the score)
+- **Surprise**: how much recent votes contradicted the predictions
+
+On every comparison, these 3 scores are updated, depending on the values of the two videos being compared.
+
+After every vote, uncertainty goes down, stabilizing the scores (the higher the certainty, the lower the score will change).
+
+Before every vote, a prediction is made ("Chance"), according to scores, of what will be the video selected by the user.
+If the prediction was wrong, 'surprise' will increase, and may make uncertainty go up again
 
 ### Weighted random next video selection
 
@@ -37,6 +48,7 @@ Save file is ordered by the last time a video was played, so that next time file
 Note: No date are stored, only the order of video played
 
 ### Combo mode
+
 When multiple votes on the same side, infer the vote between current right video, and previous left videos
 
 When vote on the same side as previous pair, continue combo\
@@ -58,7 +70,7 @@ Save & Load to file are still available and recommended
 
 ### Ranking table: display green & red arrows on rank change
 
-Display green or red arrow next to video score, showing how its score changed since last time it was compared
+Display green or red arrow next to video score, showing how its score changed since last time the video was picked to be displayed
 
 ## TODO list
 
@@ -67,25 +79,6 @@ Display green or red arrow next to video score, showing how its score changed si
 - Use proper HTML meta data
 - add link to https://NatNgs.github.io menu
 - improve background color (that gray is aweful) and menu buttons style
-  
-### Rebalance score sum
-After loaded a bunch of items (after the whole group only), compute the sum of all scores.
-
-Sum should be exactly 0. If not, split the remaining and add that to every item such as sum become 0
-
-Split the remaining with weight depending on `scoreToProba(current, 0)`, so that high scores pay a bit more
-
-### Get channel names
-
-Currently, app is able to get video titles and to show them.
-
-To get channels titles, video should be started for a few seconds (strange YT iframe behavior).
-
-Need to implement something to gather channel names, display them in ranking, and add them to the save file too
-
-#### Ranking by channel
-
-May be fun to have an option to group ranking by channels (maybe display min, max, and median scores)
 
 ### Import youtube playlists
 

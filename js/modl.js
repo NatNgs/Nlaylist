@@ -1,6 +1,7 @@
 // Utils
 const STORAGE_PREFIX = 'nlaylist.' // localStorage is shared by all pages of the same origin
-const TSV_HEADER = ['#nlaylist', 'v2', 'elo'] // First line of saved files (file format)
+const TSV_VERSION = 'v2' // Format of saved files
+const TSV_HEADER = ['#Nlaylist ' + TSV_VERSION, 'title', 'length', 'score', 'uncertainty', 'surprise'] // First line of saved files: file format, then name of the other columns
 
 // Model
 class PlaylistModel {
@@ -263,11 +264,12 @@ class PlaylistModel {
 	addFromTSV(tsv) {
 		const numberWas = Object.keys(this.getScores()).length
 
-		// First line is the file format header (see TSV_HEADER). Files without header use the legacy format
+		// First line is the file format header (see TSV_HEADER, "#nlaylist \t v2 \t elo" in previous versions). Files without header use the legacy format
 		const rows = tsv.replace(/^\uFEFF/, '').split(/\r?\n/)
-		const header = rows[0].startsWith(TSV_HEADER[0]) ? rows.shift().split('\t') : null
-		if(header && (header[1] !== TSV_HEADER[1] || header[2] !== TSV_HEADER[2])) {
-			throw new Error(`Unsupported file format: ${header.slice(1).join(' ')}`)
+		const header = rows[0].match(/^#nlaylist[ \t]+([^ \t]+)/i)
+		if(header) {
+			rows.shift()
+			if(header[1] !== TSV_VERSION) throw new Error(`Unsupported file format: ${header[1]}`)
 		}
 
 		// Parse text such as every line is "<video url> <title> <duration> <score columns>" (legacy format: "<video url> <score> <title> <duration>"). Ignore other lines
