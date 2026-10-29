@@ -18,6 +18,8 @@ const SURPRISE_VOTE_MAX = 9
 const SURPRISE_THRESHOLD = 1.5 // If surprise goes above this, uncertainty will rise
 const SURPRISE_UNCERTAINTY = 50 // Uncertainty added (quadratically) per surprise unit above 1
 const SPREAD_MIN = 100 // Minimal typical spread of scores, used to sort the ranking while few votes are known
+const NOTE_HIGH_MIN = 51 // Video noted ♫ when its lowest displayed points (points - margin) reach this value
+const NOTE_LOW_MAX = 30 // Video noted ♭ when its highest displayed points (points + margin) are under this value
 
 function scoreToProba(eloA, eloB) {
 	return 1 / (1 + Math.pow(10, (eloB - eloA) / ELO_BASE))
@@ -91,9 +93,21 @@ const SCORING = {
 		return 200*scoreToProba(data.score, data.lastScore) - 100
 	},
 
-	// Score description (HTML): points rounded, followed by their margin rounded up
-	describe(data, unit='') {
-		return `${Math.round(this.points(data))}${unit} <span class="margin">± ${Math.ceil(this.pointsMargin(data))}</span>`
+	// Displayed points and margin: points rounded, margin rounded up
+	displayed(data) {
+		return {points: Math.round(this.points(data)), margin: Math.ceil(this.pointsMargin(data))}
+	},
+
+	// Note of the displayed points: ♫ when the lowest points (points - margin) reach NOTE_HIGH_MIN, ♭ when the highest points (points + margin) are under NOTE_LOW_MAX, ♪ otherwise
+	note(data) {
+		const {points, margin} = this.displayed(data)
+		return points - margin >= NOTE_HIGH_MIN ? '♫' : points + margin < NOTE_LOW_MAX ? '♭' : '♪'
+	},
+
+	// Score description (HTML): displayed points and their note, followed by their margin
+	describe(data) {
+		const {points, margin} = this.displayed(data)
+		return `${points} <span class="note">${this.note(data)}</span> <span class="margin">± <span class="marginValue">${margin}</span></span>`
 	},
 
 	// Typical spread of scores: dispersion of compared videos scores, weighted by their certainty (1/uncertainty²)

@@ -43,8 +43,14 @@ async function updateWholeList(rankingDiv, allVdata, sortedScores) {
 			div.id = id
 			div.classList.add('rankingItem')
 
+			// Evolution cell: arrow, percentage, and trash button (shown on hover, see CSS)
 			updCell = document.createElement('div')
 			updCell.classList.add('upd')
+			const removeButton = document.createElement('button')
+			removeButton.classList.add('remove')
+			removeButton.title = 'Remove from the list'
+			removeButton.onclick = () => removeFromRanking(vid)
+			updCell.append(document.createElement('span'), document.createElement('span'), removeButton)
 			div.appendChild(updCell)
 
 			scoreCell = document.createElement('div')
@@ -61,7 +67,7 @@ async function updateWholeList(rankingDiv, allVdata, sortedScores) {
 		}
 
 		// Display current score as % chance of win against average score, and its margin
-		scoreCell.innerHTML = SCORING.describe(vdata, ' pts')
+		scoreCell.innerHTML = SCORING.describe(vdata)
 
 		// If vid is left or right: highlight the title
 		if(vid === PLAYERS.left?.videoId) {
@@ -72,15 +78,19 @@ async function updateWholeList(rankingDiv, allVdata, sortedScores) {
 			div.classList.remove('displayed')
 		}
 
-		// Compare last score with current score
+		// Compare last score with current score (arrow and percentage aligned by CSS)
 		let scoreDiff = Math.round(SCORING.evolution(vdata))
+		const [arrowSpan, percentSpan] = updCell.children
 
 		if(scoreDiff < 0) {
-			updCell.innerHTML = '▼ ' + ('-' + (-scoreDiff)).padStart(3, ' ').replaceAll(/ /g, '&nbsp;') + '%'
+			arrowSpan.textContent = '▼'
+			percentSpan.textContent = `${scoreDiff}%`
 		} else if(scoreDiff > 0) {
-			updCell.innerHTML = '▲ ' + ('+' + scoreDiff).padStart(3, ' ').replaceAll(/ /g, '&nbsp;') + '%'
+			arrowSpan.textContent = '▲'
+			percentSpan.textContent = `+${scoreDiff}%`
 		} else {
-			updCell.innerHTML = ''
+			arrowSpan.textContent = ''
+			percentSpan.textContent = ''
 		}
 		updCell.classList.toggle('red', scoreDiff < 0)
 		updCell.classList.toggle('green', scoreDiff > 0)

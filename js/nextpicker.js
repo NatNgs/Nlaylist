@@ -1,4 +1,6 @@
 
+const SIMILAR_MARGIN_FACTORS = [1, 2] // similar_scores: margins of the points ranges, tried in this order until one range overlaps
+
 NEXT_PICKERS = {
 	'meta': meta_random, // Keep first in NEXT_PICKERS to avoid infinite loop^
 	'pure_random': pure_random,
@@ -29,19 +31,19 @@ function weighted_random(vids, vdata, history) {
 	const historyIndexes = vids.map(vid => historyIndex.get(vid) ?? -1)
 	weights[historyIndexes.indexOf(historyIndexes.reduce((a, b) => Math.max(a, b)))] += 1
 
-	// Pick one with weighted random
+	return weightedPick(vids, weights)
+}
+
+function weightedPick(vids, weights) {
+	// Pick a random vid, with a chance proportional to its weight
 	const totalWeight = weights.reduce((a, b) => a + b)
 	const rand = Math.random() * totalWeight
 	let currWeight = 0
-	let vid = vids[vids.length-1]
 	for(let i = 0; i < weights.length; i++) {
 		currWeight += weights[i]
-		if(rand < currWeight) {
-			vid = vids[i]
-			break
-		}
+		if(rand < currWeight) return vids[i]
 	}
-	return vid
+	return vids[vids.length-1]
 }
 
 function ordered(vids, vdata, history) {
@@ -71,7 +73,18 @@ function ordered(vids, vdata, history) {
 function similar_scores(vids, vdata, history) {
 	if(history.length < 2) return pure_random(vids)
 
-	// Check the score of the last picked vid (the one the next vid will be compared to). Sort others by how similair their score is (absolute difference)
+	// Keep the vids whose displayed points range (points +/- margin) overlaps the one of the last picked vid (the one the next vid will be compared to)
+	// Pick one of them at random, weighted by the sum of both margins minus the points difference (> 0 only when ranges overlap)
+	// If none overlaps, same with margins widened (SIMILAR_MARGIN_FACTORS)
+	const last = SCORING.displayed(vdata[history[0]])
+	const displayed = vids.map(vid => SCORING.displayed(vdata[vid]))
+	for(const factor of SIMILAR_MARGIN_FACTORS) {
+		const weights = displayed.map(({points, margin}) => factor * (last.margin + margin) - Math.abs(points - last.points))
+		const similar = vids.filter((vid, i) => weights[i] > 0)
+		if(similar.length) return weightedPick(similar, weights.filter(weight => weight > 0))
+	}
+
+	// No overlapping range: sort vids by how similar their score is (absolute difference)
 	const lastScore = vdata[history[0]].score
 	const scores = vids.map(vid => [vid, Math.abs(vdata[vid].score - lastScore)])
 

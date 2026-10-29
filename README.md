@@ -72,6 +72,12 @@ Save & Load to file are still available and recommended
 
 Display green or red arrow next to video score, showing how its score changed since last time the video was picked to be displayed
 
+### Ranking table: remove a video
+
+Hovering the arrow cell of a video shows a trash button, removing the video from the list.
+A confirmation is asked, except for videos noted ♭ (low score, even at the top of their margin).
+A video loaded in a player is replaced by another one
+
 ## TODO list
 
 ### Tab icon & title

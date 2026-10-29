@@ -504,3 +504,30 @@ function removeRight() {
 	MODL.removeVideo(PLAYERS.right.videoId)
 	shiftVids(true, true)
 }
+async function removeFromRanking(vid) {
+	// Trash button of the ranking. Confirmation asked, except for videos noted ♭ (low score, high confidence)
+	// Shift in progress: players are not in a stable state
+	if(__isShifting) {
+		toast('Please wait for the next video to be loaded', 'toast-err')
+		return
+	}
+	const vdata = MODL.vdata[vid]
+	if(!vdata) return
+	if(SCORING.note(vdata) !== '♭' && !confirm(`Remove "${vdata.info?.title || 'yt:' + vid}" from the list? This cannot be undone (except by loading a saved file)`)) return
+
+	MODL.removeVideo(vid)
+	if(vid === PLAYERS.left?.videoId) {
+		choice(null)
+		await shiftVids(false, true)
+	} else if(vid === PLAYERS.right?.videoId) {
+		choice(null)
+		await shiftVids(true, true)
+	} else {
+		if(vid === PLAYERS.future?.videoId) {
+			// Preloaded video: dropped, the next shift loads another one
+			destroyPlayer(PLAYERS.future)
+			PLAYERS.future = null
+		}
+		await updateRankingDiv()
+	}
+}
