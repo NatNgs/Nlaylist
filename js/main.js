@@ -11,11 +11,12 @@ async function waitUntilTrue(condition) {
 	return condition()
 }
 function escapeHtml(text) {
-	return String(text).replace(/[&<>"']/g, c => `&#${c.charCodeAt(0)};`)
+	return String(text).replace(/[&<>"']/g, c => `&#${c.codePointAt(0)};`)
 }
 
 async function onPageLoad() {
 	toggleAdvancedControls()
+	loadRankingSettings()
 
 	await updateRankingDiv()
 	if(MODL.isReady()) {
@@ -44,7 +45,7 @@ function onYouTubeEventStateChange(evt) {
 		if(thisPlayer === PLAYERS.left) {
 			PLAYERS.right.playVideo()
 		} else if(thisPlayer === PLAYERS.right) {
-			shiftVids(false, false, true) // Right video ended (or failed while playing): play the new right video
+			void shiftVids(false, false, true) // Right video ended (or failed while playing): play the new right video
 		}
 	}
 }
@@ -221,9 +222,9 @@ async function loadNextVideo(player) {
 
 	// update MODL info (title received later)
 	MODL.setInfodata(vid_id, null, player.getDuration())
-	fetchVideoTitle(vid_id).then(title => {
+	await fetchVideoTitle(vid_id).then(title => {
 		MODL.setInfodata(vid_id, title, null)
-		if(title) updateRankingDiv() // Displayed video may be listed without title
+		if(title) void updateRankingDiv() // Displayed video may be listed without title
 	})
 	player.isLoading = false
 	return vid_id
@@ -273,7 +274,7 @@ async function shiftVids(shiftRightVid=false, keepCombo=false, playRight=false) 
 			await updateRankingDiv()
 		}
 
-		updatePlayerUI(autoStarted)
+		updatePlayerUI()
 
 		// playRight: left video has just been stopped, its state is updated asynchronously by the Youtube API
 		if (!autoStarted && (playRight || PLAYERS.left.getPlayerState() !== YT.PlayerState.PLAYING)) {
@@ -357,7 +358,7 @@ async function preloadFutureVideo() {
 
 
 async function updateRankingDiv() {
-	await updateList(document.getElementById('ranking'), MODL.vdata, MODL.history)
+	await updateList(document.getElementById('ranking'), MODL.getVdata(true), MODL.history, MODL.unplayable)
 }
 
 
@@ -372,7 +373,7 @@ function loadFile() {
 	input.onchange = () => {
 		const file = input.files[0]
 		const reader = new FileReader()
-		reader.onload = () => {
+		reader.onload = async () => {
 			const wasReady = MODL.isReady()
 			let added
 			try {
@@ -388,9 +389,9 @@ function loadFile() {
 				toast(`No new video listed (total: ${total})`, 'toast-err')
 			}
 			if(!wasReady && MODL.isReady()) {
-				shiftVids()
+				await shiftVids()
 			}
-			updateRankingDiv()
+			void updateRankingDiv()
 		}
 		reader.readAsText(file)
 	}
@@ -402,7 +403,7 @@ function addFromTextInput() {
 
 	if(userInput) {
 		const wasReady = MODL.isReady()
-		const added = MODL.addFromTSV(userInput.split(/[ \n\t,;]+/).join('\n'))
+		const added = MODL.addFromTSV(userInput.replaceAll(/[ \n\t,;]+/g, '\n'))
 		const total = Object.keys(MODL.getScores()).length
 		if(added) {
 			toast(`${added} new videos listed (now ${total} listed)`, 'toast-ok')
@@ -410,9 +411,9 @@ function addFromTextInput() {
 			toast(`No new video listed (${total} listed)`, 'toast-err')
 		}
 		if(!wasReady && MODL.isReady()) {
-			shiftVids()
+			void shiftVids()
 		}
-		updateRankingDiv()
+		void updateRankingDiv()
 	}
 }
 
@@ -441,7 +442,7 @@ function resetList() {
 	PLAYERS.left = null
 	PLAYERS.right = null
 	PLAYERS.future = null
-	updateRankingDiv()
+	void updateRankingDiv()
 }
 
 function choice(selection) {
@@ -463,7 +464,7 @@ async function skip() {
 
 	if(!PLAYERS.left || !PLAYERS.right) {
 		// Players not initialized (not enough videos, or player loading failed): try to initialize them
-		shiftVids()
+		void shiftVids()
 		return
 	}
 
@@ -476,7 +477,7 @@ async function skip() {
 	} else {
 		// Left video isn'nt playing: stop right video (it becomes the left one), then do shift and play the new right video
 		PLAYERS.right.stopVideo()
-		shiftVids(false, false, true)
+		void shiftVids(false, false, true)
 	}
 }
 
@@ -492,17 +493,17 @@ function toggleAdvancedControls() {
 function mergeRight() {
 	choice(null)
 	MODL.removeVideo(PLAYERS.left.videoId, PLAYERS.right.videoId)
-	shiftVids(false, true)
+	void shiftVids(false, true)
 }
 function mergeLeft() {
 	choice(null)
 	MODL.removeVideo(PLAYERS.right.videoId, PLAYERS.left.videoId)
-	shiftVids(true, true)
+	void shiftVids(true, true)
 }
 function removeRight() {
 	choice(null)
 	MODL.removeVideo(PLAYERS.right.videoId)
-	shiftVids(true, true)
+	void shiftVids(true, true)
 }
 async function removeFromRanking(vid) {
 	// Trash button of the ranking. Confirmation asked, except for videos noted ♭ (low score, high confidence)
@@ -511,7 +512,7 @@ async function removeFromRanking(vid) {
 		toast('Please wait for the next video to be loaded', 'toast-err')
 		return
 	}
-	const vdata = MODL.vdata[vid]
+	const vdata = MODL.getVdata(true)[vid] // Unplayable videos are included
 	if(!vdata) return
 	if(SCORING.note(vdata) !== '♭' && !confirm(`Remove "${vdata.info?.title || 'yt:' + vid}" from the list? This cannot be undone (except by loading a saved file)`)) return
 

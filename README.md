@@ -68,6 +68,19 @@ Data is stored in local storage to be persistent from session to session.
 
 Save & Load to file are still available and recommended
 
+### Ranking table: pages, sort modes and search
+
+All listed videos, using pagination, in one of two modes:
+
+- **Top**: videos ordered by ranking (best with high confidence first, low confidence near the middle, worst with high confidence last)
+- **History**: last picked videos first (the preloaded next video, then the right and left videos, then the following in order of last time played)
+
+Search field :
+- Filters the list finding only videos matching the search input
+- Every word separated by spaces must be found in the title, in any order, anywhere (as if it started and ended with `*`)
+- Wildcards : `?` = any character, `*` = any character**s**, `_`: a space or an underscore (separating words by spaces will look for them in any order; using `_` will force that as a unique 'word' that contains a space)
+- Pasting a video ID or url will also look for it in the list
+
 ### Ranking table: display green & red arrows on rank change
 
 Display green or red arrow next to video score, showing how its score changed since last time the video was picked to be displayed
@@ -75,8 +88,7 @@ Display green or red arrow next to video score, showing how its score changed si
 ### Ranking table: remove a video
 
 Hovering the arrow cell of a video shows a trash button, removing the video from the list.
-A confirmation is asked, except for videos noted ♭ (low score, even at the top of their margin).
-A video loaded in a player is replaced by another one
+A confirmation is asked, except for videos with low score and low score margin of error.
 
 ## TODO list
 
@@ -89,11 +101,3 @@ A video loaded in a player is replaced by another one
 ### Import youtube playlists
 
 Work to be done
-
-### Scroll down improvement
-
-Add a slow moving animation, maybe red slanted bar below the video currently playing
-
-Then fix current playing marker and buttons to the page:
-  - scrolling should hide only video players, Merge & Delete buttons
-  - header, play indicator, left, =, next and right buttons should always be visible, even when scrolled a lot down to see the ranking

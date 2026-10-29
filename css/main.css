@@ -7,14 +7,8 @@ html, body {
 body {
 	background-color: #444;
 }
-
-/* MENU */
-#menu {
-	width: 100%;
-	height: 3em;
-}
-/* Same style as the buttons (angular, plain background): native look removed, arrow drawn by an inline SVG */
-#menu select {
+/* Selects and text fields: same style as the buttons (angular, plain background). Native look of selects removed, arrow drawn by an inline SVG */
+select {
 	appearance: none;
 	margin: 0.25em;
 	padding: 0.25em 1.5em 0.25em 0.25em;
@@ -24,8 +18,21 @@ body {
 	transition: background-color 0.5s ease-out;
 	cursor: pointer;
 }
-#menu select:hover {
+select:hover {
 	background-color: #BBB;
+}
+input[type="text"] {
+	margin: 0.25em;
+	padding: 0.25em;
+	border: 0;
+	border-radius: 0;
+	background-color: white;
+}
+
+/* MENU */
+#menu {
+	width: 100%;
+	height: 3em;
 }
 
 /* PLAYERS */
@@ -115,10 +122,41 @@ button:hover {
 /* ******* */
 /* RANKING */
 
-/* Rows share the columns of the ranking (subgrid): the evolution and score columns fit their widest content, whatever the font */
+/* Controls above the ranking (mode, search, Go to buttons, page size, pagination) */
+#rankingControls {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	margin: 0.25em 1em 0 0; /* Buttons margins (0.25em) included: aligned with the ranking */
+}
+#rankingControls button.selected {
+	background-color: #8CA;
+}
+.pagination {
+	display: flex;
+	align-items: center;
+}
+#rankingControls .pagination {
+	margin-left: auto;
+}
+#ranking + .pagination {
+	justify-content: flex-end;
+	margin-right: 1em;
+}
+.pagination .pageNumber {
+	color: white;
+	font-variant-numeric: tabular-nums;
+}
+#rankingControls button:disabled, .pagination button:disabled {
+	background-color: #DDD;
+	color: gray;
+	cursor: default;
+}
+
+/* Rows share the columns of the ranking (subgrid): the rank, evolution and score columns fit their widest content, whatever the font */
 #ranking {
 	display: grid;
-	grid-template-columns: minmax(4em, max-content) max-content auto;
+	grid-template-columns: max-content minmax(4em, max-content) max-content auto;
 	grid-column-gap: 0.125em;
 	grid-row-gap: 0.25em;
 	margin: 0.25em 1.25em 0.25em 0.25em; /* On the ranking, not on the rows: a subgrid margin would be taken from its first and last columns */
@@ -126,7 +164,7 @@ button:hover {
 .rankingItem {
 	display: grid;
 	grid-column: 1 / -1;
-	grid-template-columns: minmax(4em, max-content) max-content auto; /* Browsers without subgrid: each row fits its own content */
+	grid-template-columns: max-content minmax(4em, max-content) max-content auto; /* Browsers without subgrid: each row fits its own content */
 	grid-template-columns: subgrid;
 	grid-column-gap: 0.125em;
 }
@@ -134,6 +172,13 @@ button:hover {
 	background-color: #AAA;
 	padding: 0.125em;
 	transition: background-color 1s, opacity 1s;
+}
+.rankingItem.unplayable > * {
+	opacity: 0.5;
+}
+.rankingItem .rank {
+	text-align: right;
+	font-variant-numeric: tabular-nums;
 }
 .rankingItem .score {
 	text-align: right;
@@ -177,7 +222,6 @@ button:hover {
 	gap: 0.25em;
 	color: gray;
 	font-variant-numeric: tabular-nums;
-	background-color: transparent;
 	position: relative;
 }
 /* Trash button, centered on the evolution cell while it is hovered (evolution hidden meanwhile) */
@@ -213,8 +257,8 @@ button:hover {
 .rankingItem.displayed > div {
 	background-color: #FF8;
 }
-#ranking_unranked .title {
-	grid-column-start: 3;
+#ranking_count .title {
+	grid-column-start: 4;
 	color: #444;
 	font-style: italic;
 	background-color: #8CA;

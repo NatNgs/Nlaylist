@@ -1,49 +1,120 @@
 
-async function updateList(rankingDiv, allVdata, history) {
-	// Sort by score brought back toward the average depending on its uncertainty (see SCORING.rankValue)
-	const spread = SCORING.scoreSpread(Object.values(allVdata))
-	const rankValues = {}
-	for(const vid in allVdata) rankValues[vid] = SCORING.rankValue(allVdata[vid], spread)
-	const sortedScores = Object.keys(allVdata)
-	sortedScores.sort((a, b) => rankValues[b] - rankValues[a] || (b > a ? -1 : 1))
-
-	await updateWholeList(rankingDiv, allVdata, sortedScores)
-
-	showHideElements(history)
+// Ranking table state
+const RANKING_VIEW = {
+	mode: 'top', // 'top' or 'history'
+	search: '', // User filter (search field)
+	pageSize: 25, // see RANKING_PAGE_SIZES
+	page: 1, // current page
+	rows: [], // Rows of the last displayed table
 }
 
-async function updateWholeList(rankingDiv, allVdata, sortedScores) {
-	// Rows are kept from an update to another, and moved only when their rank changes (so that CSS transitions apply)
+function loadRankingSettings() {
+	try {
+		const mode = localStorage[STORAGE_PREFIX + 'rankingMode']
+		const pageSize = Number(localStorage[STORAGE_PREFIX + 'rankingPageSize'])
+		if(mode === 'top' || mode === 'history') RANKING_VIEW.mode = mode
+		if(RANKING_PAGE_SIZES.includes(pageSize)) RANKING_VIEW.pageSize = pageSize
+	} catch(e) {
+		console.error('Unable to read ranking settings from browser storage', e)
+	}
+}
+function saveRankingSettings() {
+	try {
+		localStorage[STORAGE_PREFIX + 'rankingMode'] = RANKING_VIEW.mode
+		localStorage[STORAGE_PREFIX + 'rankingPageSize'] = RANKING_VIEW.pageSize
+	} catch(e) {
+		console.error('Unable to save ranking settings in browser storage', e)
+	}
+}
 
-	// Add a single row for all videos never compared
-	let div = document.getElementById('ranking_unranked')
-	let titleCell = div?.querySelector('.title')
-	if(!div) {
-		div = document.createElement('div')
-		div.id = 'ranking_unranked'
-		div.classList.add('rankingItem')
-		titleCell = document.createElement('div')
-		titleCell.classList.add('title')
-		div.appendChild(titleCell)
-		rankingDiv.prepend(div)
+// User actions
+function setRankingMode(mode) {
+	RANKING_VIEW.mode = mode
+	RANKING_VIEW.page = 1
+	saveRankingSettings()
+	updateRankingDiv()
+}
+function setRankingPageSize(pageSize) {
+	RANKING_VIEW.pageSize = pageSize
+	RANKING_VIEW.page = 1
+	saveRankingSettings()
+	updateRankingDiv()
+}
+function applyRankingSearch() {
+	RANKING_VIEW.search = document.getElementById('rankingSearch').value
+	RANKING_VIEW.page = 1
+	updateRankingDiv()
+}
+function clearRankingSearch() {
+	document.getElementById('rankingSearch').value = ''
+	applyRankingSearch()
+}
+function goToRankingPage(page) {
+	RANKING_VIEW.page = page
+	updateRankingDiv()
+}
+function shiftRankingPage(shift) {
+	goToRankingPage(RANKING_VIEW.page + shift)
+}
+function goToPlayerVideo(side) {
+	// Find the page where the selected video is displayed
+	const vid = PLAYERS[side]?.videoId
+	if(!vid) return
+	if(RANKING_VIEW.mode === 'history') {
+		RANKING_VIEW.page = 1
+	} else {
+		RANKING_VIEW.page = RANKING.pageOf(RANKING_VIEW.rows, vid, RANKING_VIEW.pageSize) ?? 1
+	}
+	updateRankingDiv()
+}
+
+async function updateList(rankingDiv, allVdata, history, unplayable) {
+	// Left and Right Videos are always included, bypassing filters
+	const shown = [PLAYERS.left?.videoId, PLAYERS.right?.videoId].filter(vid => vid && allVdata[vid])
+	const table = RANKING.table(allVdata, history, unplayable, {mode: RANKING_VIEW.mode, search: RANKING_VIEW.search, shown})
+	const page = RANKING.page(table.rows, RANKING_VIEW.pageSize, RANKING_VIEW.page)
+	RANKING_VIEW.rows = table.rows
+	RANKING_VIEW.page = page.page
+
+	await updateWholeList(rankingDiv, allVdata, page.rows, RANKING.ranks(allVdata, unplayable), unplayable)
+	updateRankingCount(table)
+	updateRankingControls(page)
+}
+
+async function updateWholeList(rankingDiv, allVdata, vids, ranks, unplayable) {
+	// Rows of the page are kept and moved for CSS transitions to apply
+
+	// First row: count of results
+	let countDiv = document.getElementById('ranking_count')
+	if(!countDiv) {
+		countDiv = document.createElement('div')
+		countDiv.id = 'ranking_count'
+		countDiv.classList.add('rankingItem')
+		const countCell = document.createElement('div')
+		countCell.classList.add('title')
+		countDiv.appendChild(countCell)
+		rankingDiv.prepend(countDiv)
 	}
 
-	let unscored = 0
-	let previousDiv = div // Rows are placed after the 'never compared' row, in sortedScores order
+	let previousDiv = countDiv // Rows are placed after the count row, in vids order
 	const listed = new Set()
-	for(const vid of sortedScores) {
+	for(const vid of vids) {
 		const vdata = allVdata[vid]
 		const id = 'ranking_' + vid
 
 		// Get div by id, or create new one if none found
 		let div = document.getElementById(id)
-		let updCell, scoreCell, titleCell
+		let rankCell, updCell, scoreCell, titleCell
 		if(!div) {
  			div = document.createElement('div')
 			div.id = id
 			div.classList.add('rankingItem')
 
-			// Evolution cell: arrow, percentage, and trash button (shown on hover, see CSS)
+			rankCell = document.createElement('div')
+			rankCell.classList.add('rank')
+			div.appendChild(rankCell)
+
+			// Progression cell: arrow, percentage, and trash button (shown on hover, see CSS)
 			updCell = document.createElement('div')
 			updCell.classList.add('upd')
 			const removeButton = document.createElement('button')
@@ -61,27 +132,28 @@ async function updateWholeList(rankingDiv, allVdata, sortedScores) {
 			titleCell.classList.add('title')
 			div.appendChild(titleCell)
 		} else {
+			rankCell = div.querySelector('.rank')
 			updCell = div.querySelector('.upd')
 			scoreCell = div.querySelector('.score')
 			titleCell = div.querySelector('.title')
 		}
 
-		// Display current score as % chance of win against average score, and its margin
+		// Rank ('-' if unplayable, none if never compared)
+		const rank = ranks.get(vid)
+		rankCell.textContent = (rank === Infinity) ? '-' : (rank ?? '')
+
+		// Display current score as % chance of win against average video
 		scoreCell.innerHTML = SCORING.describe(vdata)
 
-		// If vid is left or right: highlight the title
-		if(vid === PLAYERS.left?.videoId) {
-			div.classList.add('displayed')
-		} else if(vid === PLAYERS.right?.videoId) {
-			div.classList.add('displayed')
-		} else {
-			div.classList.remove('displayed')
-		}
+		// Higlight left and right vids, and grey unplayables
+		div.classList.toggle('displayed', vid === PLAYERS.left?.videoId || vid === PLAYERS.right?.videoId)
+		div.classList.toggle('unplayable', unplayable.has(vid))
+		div.title = unplayable.has(vid) ? 'Failed to play' : ''
 
-		// Compare last score with current score (arrow and percentage aligned by CSS)
+		// Compare last with current score
 		let scoreDiff = Math.round(SCORING.evolution(vdata))
-		const [arrowSpan, percentSpan] = updCell.children
-
+		const arrowSpan = updCell.children[0]
+		const percentSpan = updCell.children[1]
 		if(scoreDiff < 0) {
 			arrowSpan.textContent = '▼'
 			percentSpan.textContent = `${scoreDiff}%`
@@ -95,12 +167,7 @@ async function updateWholeList(rankingDiv, allVdata, sortedScores) {
 		updCell.classList.toggle('red', scoreDiff < 0)
 		updCell.classList.toggle('green', scoreDiff > 0)
 
-		// Never compared videos are listed only while displayed in a player
-		if(!SCORING.isCompared(vdata) && !div.classList.contains('displayed')) {
-			unscored += 1
-			continue
-		}
-		if(vdata.info && vdata.info.title) {
+		if(vdata.info?.title) {
 			titleCell.innerHTML = `<a href="https://www.youtube.com/watch?v=${escapeHtml(vid)}" target="_blank" rel="noopener noreferrer">${escapeHtml(vdata.info.title)}</a>`
 			titleCell.classList.remove('vid')
 		} else {
@@ -116,49 +183,36 @@ async function updateWholeList(rankingDiv, allVdata, sortedScores) {
 		listed.add(vid)
 	}
 
-	// Find and remove rankingItem divs of videos not listed anymore (except ranking_unranked)
+	// Find and remove rankingItem divs of videos not listed anymore (except ranking_count)
 	for(const div of rankingDiv.querySelectorAll('.rankingItem')) {
 		const did = div.id.replace('ranking_','')
-		if(did !== 'unranked' && !listed.has(did)) {
-			rankingDiv.removeChild(div)
+		if(did !== 'count' && !listed.has(did)) {
+			div.remove()
 		}
-	}
-
-	// Update counts
-	titleCell.innerText = `${sortedScores.length - unscored} listed videos`
-	if(unscored > 0) {
-		titleCell.innerText += ` (+${unscored} never compared yet)`
 	}
 }
 
-function showHideElements(history) {
-	const list = Array.from(document.getElementsByClassName('rankingItem'))
-
-	// Mark them all as hidden
-	for(const d of list) {
-		d.style.display = 'none'
+function updateRankingCount({results, total, neverCompared}) {
+	const countCell = document.querySelector('#ranking_count .title')
+	countCell.innerText = `${results} result${results === 1 ? '' : 's'} / ${total} listed video${total === 1 ? '' : 's'}`
+	if(neverCompared > 0) {
+		countCell.innerText += ` (+${neverCompared} never compared yet)`
 	}
+}
 
-	// Show 25 last played
-	for(const vid of history.slice(0, 25)) {
-		const div = document.getElementById('ranking_' + vid)
-		if(div) {
-			div.style.display = ''
-		}
-	}
+function updateRankingControls({page, pageCount}) {
+	document.getElementById('rankingTop').classList.toggle('selected', RANKING_VIEW.mode === 'top')
+	document.getElementById('rankingHistory').classList.toggle('selected', RANKING_VIEW.mode === 'history')
+	document.getElementById('rankingPageSize').value = RANKING_VIEW.pageSize
+	document.getElementById('goToLeft').disabled = !PLAYERS.left?.videoId
+	document.getElementById('goToRight').disabled = !PLAYERS.right?.videoId
 
-	// Show the one above and the one below both currently displayed (class='displayed')
-	const index = list.map((d, i) => i).filter(i => list[i].classList.contains('displayed'))
-	for(const displayedIndex of index) {
-		for(let i=displayedIndex-1; i<=displayedIndex+1; i++) {
-			if(i >= 0 && i < list.length)
-				list[i].style.display = ''
-		}
-	}
-
-	// Always display 'ranking_unranked'
-	const div = document.getElementById('ranking_unranked')
-	if(div) {
-		div.style.display = ''
+	// Pagination
+	for(const pagination of document.getElementsByClassName('pagination')) {
+		pagination.querySelector('.pageNumber').textContent = `Page ${page}/${pageCount}`
+		pagination.querySelector('.firstPage').disabled = page === 1
+		pagination.querySelector('.previousPage').disabled = page === 1
+		pagination.querySelector('.nextPage').disabled = page === pageCount
+		pagination.querySelector('.lastPage').disabled = page === pageCount
 	}
 }

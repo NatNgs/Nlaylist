@@ -3,6 +3,22 @@ const STORAGE_PREFIX = 'nlaylist.' // localStorage is shared by all pages of the
 const TSV_VERSION = 'v2' // Format of saved files
 const TSV_HEADER = ['#Nlaylist ' + TSV_VERSION, 'title', 'length', 'score', 'uncertainty', 'surprise'] // First line of saved files: file format, then name of the other columns
 
+function extractVideoId(url) {
+	/** extract id (11 char length) from id or url, and return it (null if none found)
+	 * Possible forms are:
+	 * - <id>
+	 * - http(s)://youtu.be/<id>
+	 * - http(s)://website.xxx/...?v=<id>&..., ...&v=<id>&...
+	 * - http(s)://website.xxx/embed/<id>, ../shorts/<id>, ../live/<id> and ../v/<id>
+	 */
+	url = url.trim()
+	const match = url.match(/^([a-zA-Z0-9_-]{11})$/)
+		|| url.match(/[?&]v=([a-zA-Z0-9_-]{11})(?![a-zA-Z0-9_-])/)
+		|| url.match(/youtu\.be\/([a-zA-Z0-9_-]{11})(?![a-zA-Z0-9_-])/)
+		|| url.match(/\/(?:embed|shorts|live|v)\/([a-zA-Z0-9_-]{11})(?![a-zA-Z0-9_-])/)
+	return match ? match[1] : null
+}
+
 // Model
 class PlaylistModel {
 	#vdata // vid : {<score data (see SCORING)>, info: {youtube video info}, merged: [info of merged videos]}
@@ -81,22 +97,12 @@ class PlaylistModel {
 	}
 
 	addVid(url, scoreData=null) {
-		/** extract id (always 11 char length) from id or url, and return it (null if none found)
-		 * scoreData: score of the new video (see SCORING), never compared if not given
-		 * Possible forms are:
-		 * - <id>
-		 * - http(s)://website.xxx/...?v=<id>&...
-		 * - http(s)://website.xxx/...?...&v=<id>&...
-		 * - http(s)://youtu.be/<id>
-		 * - http(s)://website.xxx/embed/<id> (also /shorts/<id>, /live/<id> and /v/<id>)
+		/**
+		 * add the given video, and return its id
+		 * scoreData: score of the new video
 		 */
-		url = url.trim()
-		const match = url.match(/^([a-zA-Z0-9_-]{11})$/)
-			|| url.match(/[?&]v=([a-zA-Z0-9_-]{11})(?![a-zA-Z0-9_-])/)
-			|| url.match(/youtu\.be\/([a-zA-Z0-9_-]{11})(?![a-zA-Z0-9_-])/)
-			|| url.match(/\/(?:embed|shorts|live|v)\/([a-zA-Z0-9_-]{11})(?![a-zA-Z0-9_-])/)
-		if(!match) return null // failed to extract vid
-		const vid = match[1]
+		const vid = extractVideoId(url)
+		if(!vid) return null // failed to extract vid
 		if(this.#vdata[vid]) return vid // vid already in vids: ignore
 
 		this.#vdata[vid] = scoreData || SCORING.newScore()
@@ -113,7 +119,7 @@ class PlaylistModel {
 			clearTimeout(this.#isCallingUpdate)
 		}
 		this.#isCallingUpdate = setTimeout(() => {
-			this.updateLocalStorage()
+			void this.updateLocalStorage()
 			this.#isCallingUpdate = false
 		}, 100)
 	}
@@ -123,20 +129,20 @@ class PlaylistModel {
 		let vids = Object.keys(this.#vdata)
 			.filter(vid => !this.#unplayable.has(vid))
 
-		// Remove last half played
-		const historyIndex = new Map(this.history.map((vid, i) => [vid, i]))
+		// Remove last half played and uplayable
+		const history = this.history.filter(vid => !this.#unplayable.has(vid))
+		const historyIndex = new Map(history.map((vid, i) => [vid, i]))
 		vids = vids.filter(vid => {
 			const i = historyIndex.get(vid) ?? -1
 			return i === -1 || i > vids.length/2
 		})
-
 
 		if(!vids.length) {
 			alert('Not enough playable video left')
 			return null
 		}
 
-		const vid = NEXT_PICKERS[mode || 'weighted_random'](vids, this.#vdata, this.history)
+		const vid = NEXT_PICKERS[mode || 'weighted_random'](vids, this.#vdata, history)
 
 		// History: move vid to the front of the list
 		this.#removeFromHistory(vid)
@@ -150,8 +156,6 @@ class PlaylistModel {
 
 	markAsUnplayable(vid) {
 		this.#unplayable.add(vid)
-		// remove vid from history
-		this.#removeFromHistory(vid)
 
 		console.log(vid, 'was not able to be played -- Remaining videos:', Object.keys(this.#vdata).filter(vid => !this.#unplayable.has(vid)).length)
 	}
@@ -168,11 +172,17 @@ class PlaylistModel {
 		return scores
 	}
 	get vdata() {
+		return this.getVdata()
+	}
+	getVdata(keepUnplayable = false) {
 		const out = {}
 		for(const v in this.#vdata)
-			if(!this.#unplayable.has(v))
+			if(keepUnplayable || !this.#unplayable.has(v))
 				out[v] = {...this.#vdata[v]}
 		return out
+	}
+	get unplayable() {
+		return new Set(this.#unplayable)
 	}
 
 	applyVote(id_a, score, id_b) {
@@ -186,9 +196,9 @@ class PlaylistModel {
 				id_b = id_a
 				id_a = tmp
 				score *= -1
-			} else if(this.#combo[this.#combo.length-1] === id_a && score/this.#comboDir > 0) {
+			} else if(this.#combo.at(-1) === id_a && score/this.#comboDir > 0) {
 				this.#combo.push(id_b)
-			} else if(this.#combo[this.#combo.length-1] === id_b && score/this.#comboDir < 0) {
+			} else if(this.#combo.at(-1) === id_b && score/this.#comboDir < 0) {
 				this.#combo.push(id_a)
 				// reverse references such as combo array ends with [... id_a, id_b]
 				const tmp = id_b

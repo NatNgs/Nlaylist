@@ -3,7 +3,7 @@
 	<head>
 		<meta charset="utf-8"/>
 		<link rel="icon" href="rsc/nlaylist.svg">
-
+		<title>Nlaylist</title>
 
 		<!-- external -->
 		<script src="https://www.youtube.com/iframe_api" defer></script>
@@ -13,6 +13,7 @@
 		<link rel="stylesheet" href="css/toast.css">
 		<script src="js/scoring.js"></script>
 		<script src="js/nextpicker.js"></script>
+		<script src="js/ranking.js"></script>
 		<script src="js/list.js"></script>
 		<script src="js/modl.js"></script>
 		<script src="js/main.js"></script>
@@ -60,6 +61,37 @@
 		</div>
 
 		<!-- Ranking -->
+		<div id="rankingControls">
+			<button id="rankingTop" onclick="setRankingMode('top')" title="Best videos first">Top</button>
+			<button id="rankingHistory" onclick="setRankingMode('history')" title="Last picked videos first">History</button>
+			<input id="rankingSearch" type="text" placeholder="Search" onkeydown="if(event.key === 'Enter') applyRankingSearch()"
+				title="Search in video titles&#10;? : any character&#10;* : any characters&#10;- _ : space or underscore"/>
+			<button onclick="clearRankingSearch()" title="Clear the search">×</button>
+			<button onclick="applyRankingSearch()">Apply</button>
+			<button id="goToLeft" onclick="goToPlayerVideo('left')" title="Show the page of the left video">Go to left</button>
+			<button id="goToRight" onclick="goToPlayerVideo('right')" title="Show the page of the right video">Go to right</button>
+			<select id="rankingPageSize" onchange="setRankingPageSize(Number(this.value))" title="Videos per page">
+				<option value="10">10 per page</option>
+				<option value="25" selected>25 per page</option>
+				<option value="50">50 per page</option>
+				<option value="100">100 per page</option>
+				<option value="250">250 per page</option>
+			</select>
+			<div class="pagination">
+				<button class="firstPage" onclick="goToRankingPage(1)" title="First page">«</button>
+				<button class="previousPage" onclick="shiftRankingPage(-1)" title="Previous page">&lt;</button>
+				<span class="pageNumber">Page 1/1</span>
+				<button class="nextPage" onclick="shiftRankingPage(1)" title="Next page">&gt;</button>
+				<button class="lastPage" onclick="goToRankingPage(Infinity)" title="Last page">»</button>
+			</div>
+		</div>
 		<div id="ranking"></div>
+		<div class="pagination">
+			<button class="firstPage" onclick="goToRankingPage(1)" title="First page">«</button>
+			<button class="previousPage" onclick="shiftRankingPage(-1)" title="Previous page">&lt;</button>
+			<span class="pageNumber">Page 1/1</span>
+			<button class="nextPage" onclick="shiftRankingPage(1)" title="Next page">&gt;</button>
+			<button class="lastPage" onclick="goToRankingPage(Infinity)" title="Last page">»</button>
+		</div>
 	</body>
 </html>
