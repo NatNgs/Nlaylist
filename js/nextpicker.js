@@ -5,7 +5,7 @@ NEXT_PICKERS = {
 	'meta': meta_random, // Keep first in NEXT_PICKERS to avoid infinite loop^
 	'pure_random': pure_random,
 	'weighted_random': weighted_random,
-	'ordered': ordered,
+	'top_scores': top_scores,
 	'similar_scores': similar_scores
 }
 
@@ -46,40 +46,30 @@ function weightedPick(vids, weights) {
 	return vids[vids.length-1]
 }
 
-function ordered(vids, vdata, history) {
-	// Rank vids by their score (best score first)
-	const byScores = vids.map(vid => [vid, vdata[vid].score])
-	byScores.sort((a,b) => b[1] - a[1])
-	const scoreRank = new Map(byScores.map((v, i) => [v[0], i]))
+// Computes the overlap of two scores+/-margin ranges with the given ref
+function overlapWeights(displayed, ref, margin_mult=1) {
+	return displayed.map(({points, margin}) => margin_mult * (ref.margin + margin) - Math.abs(points - ref.points))
+}
 
-	// Rank vids by their position in history (last played first)
-	const historyIndex = new Map(history.map((vid, i) => [vid, i]))
-
-	// Sum ranks to weights
-	const weights = vids.map(vid => [vid,
-		scoreRank.get(vid) // The highest score: the more chance to be picked
-		+ (!SCORING.isCompared(vdata[vid]) && vdata[vid].info === undefined
-			? 0 // Never compared and no info: increase chances to be picked
-			: history.length - 1 - (historyIndex.get(vid) ?? -1) // The older in history (the later in history array): the more it will be picked
-		)
-		+ Math.random() // Randomize if same score
-	])
-
-	// Pick the vid with the lowest weight
-	weights.sort((a,b) => a[1] - b[1])
-	return weights[0][0]
+// Takes the best scored vid, and the vids whose score range overlaps it
+// Picks one of this selection at random
+function top_scores(vids, vdata) {
+	const displayed = vids.map(vid => SCORING.displayed(vdata[vid]))
+	const best = displayed.reduce((a, b) => b.points > a.points ? b : a)
+	const weights = overlapWeights(displayed, best)
+	return pure_random(vids.filter((vid, i) => displayed[i] === best || weights[i] > 0))
 }
 
 function similar_scores(vids, vdata, history) {
 	if(history.length < 2) return pure_random(vids)
 
 	// Keep the vids whose displayed points range (points +/- margin) overlaps the one of the last picked vid (the one the next vid will be compared to)
-	// Pick one of them at random, weighted by the sum of both margins minus the points difference (> 0 only when ranges overlap)
+	// Pick one of them at random, weighted by their overlap
 	// If none overlaps, same with margins widened (SIMILAR_MARGIN_FACTORS)
 	const last = SCORING.displayed(vdata[history[0]])
 	const displayed = vids.map(vid => SCORING.displayed(vdata[vid]))
 	for(const factor of SIMILAR_MARGIN_FACTORS) {
-		const weights = displayed.map(({points, margin}) => factor * (last.margin + margin) - Math.abs(points - last.points))
+		const weights = overlapWeights(displayed, last, factor)
 		const similar = vids.filter((vid, i) => weights[i] > 0)
 		if(similar.length) return weightedPick(similar, weights.filter(weight => weight > 0))
 	}

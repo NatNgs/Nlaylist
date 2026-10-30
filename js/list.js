@@ -71,12 +71,12 @@ function goToPlayerVideo(side) {
 async function updateList(rankingDiv, allVdata, history, unplayable) {
 	// Left and Right Videos are always included, bypassing filters
 	const shown = [PLAYERS.left?.videoId, PLAYERS.right?.videoId].filter(vid => vid && allVdata[vid])
-	const table = RANKING.table(allVdata, history, unplayable, {mode: RANKING_VIEW.mode, search: RANKING_VIEW.search, shown})
+	const table = RANKING.table(allVdata, history, {mode: RANKING_VIEW.mode, search: RANKING_VIEW.search, shown})
 	const page = RANKING.page(table.rows, RANKING_VIEW.pageSize, RANKING_VIEW.page)
 	RANKING_VIEW.rows = table.rows
 	RANKING_VIEW.page = page.page
 
-	await updateWholeList(rankingDiv, allVdata, page.rows, RANKING.ranks(allVdata, unplayable), unplayable)
+	await updateWholeList(rankingDiv, allVdata, page.rows, RANKING.ranks(allVdata), unplayable)
 	updateRankingCount(table)
 	updateRankingControls(page)
 }
@@ -138,9 +138,8 @@ async function updateWholeList(rankingDiv, allVdata, vids, ranks, unplayable) {
 			titleCell = div.querySelector('.title')
 		}
 
-		// Rank ('-' if unplayable, none if never compared)
-		const rank = ranks.get(vid)
-		rankCell.textContent = (rank === Infinity) ? '-' : (rank ?? '')
+		// Rank (none if never compared)
+		rankCell.textContent = ranks.get(vid) || ''
 
 		// Display current score as % chance of win against average video
 		scoreCell.innerHTML = SCORING.describe(vdata)

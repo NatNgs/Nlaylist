@@ -23,9 +23,15 @@ After every vote, uncertainty goes down, stabilizing the scores (the higher the 
 Before every vote, a prediction is made ("Chance"), according to scores, of what will be the video selected by the user.
 If the prediction was wrong, 'surprise' will increase, and may make uncertainty go up again
 
-### Weighted random next video selection
+### Next video selection
 
-TODO: describe this part
+The next video is picked from the playable videos, except the last half from the history (recently played videos are never an option), using one of these modes, chosen by the user:
+
+- **Any** (default): For every next video to pick, will follow one of the following modes, drawn at random (same probability)
+- **Random**: Pure random, all videos have the same chance to be selected
+- **Top**: Picks one of the best videos (takes the very best candidate, and find all other candidates having similar scores (according to uncertainty). Will select one of these at random, as the next video)
+- **Similar**: Picks video with a similar score than the last one played (Every candidate is given a weight according to the overlaps of their scores with the right video, considering the score and margin of error. If none overlaps, will retry with margins doubled, and if still no match, will pick one with the closest score ignoring the margins). Useful to refine the ranking
+- **Weighted**: Picks video at random, with more chance to pick high scored ones rather than others. The oldest video in history (the one that was played the longest time ago) is given a chance boost
 
 ### Autoskip unplayable videos
 
@@ -40,8 +46,6 @@ TODO: describe this part
 Everytime a video is played, is added back to an 'history' stack.
 
 First half of history stack will not be picked when switching to next video, to prevent repeat the same videos over and over.
-
-Also, selection will give more chance to the last video of the history to be picked (weight + 1)
 
 Save file is ordered by the last time a video was played, so that next time file is loaded, history can be recovered
 

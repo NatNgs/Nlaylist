@@ -1,6 +1,6 @@
 /**
  * Ranking table content: rank of the videos, search, sort modes and pages
- * - 'top': best videos first, unplayable videos last, never compared videos excluded
+ * - 'top': best videos first, never compared videos excluded
  * - 'history': last picked videos first (in history order), videos missing from history last
  */
 const RANKING_PAGE_SIZES = [10, 25, 50, 100, 250]
@@ -44,18 +44,18 @@ const RANKING = {
 	},
 
 	// Top order: Sorted by score and margin of error (higher score and lower margin first)
-	topOrder(vdata, unplayable) {
+	topOrder(vdata) {
 		const vids = Object.keys(vdata)
-		const spread = SCORING.scoreSpread(vids.filter(vid => !unplayable.has(vid)).map(vid => vdata[vid]))
+		const spread = SCORING.scoreSpread(vids.map(vid => vdata[vid]))
 		const rankValues = new Map(vids.map(vid => [vid, SCORING.rankValue(vdata[vid], spread)]))
-		return vids.sort((a, b) => unplayable.has(a) - unplayable.has(b) || rankValues.get(b) - rankValues.get(a) || (b > a ? -1 : 1))
+		return vids.sort((a, b) => rankValues.get(b) - rankValues.get(a) || (a < b ? -1 : 1))
 	},
 
 	// Rank (best is '1'), none for never compared videos
-	ranks(vdata, unplayable) {
+	ranks(vdata) {
 		const ranks = new Map()
 		let rank = 0
-		for(const vid of this.topOrder(vdata, unplayable))
+		for(const vid of this.topOrder(vdata))
 			if(SCORING.isCompared(vdata[vid]))
 				ranks.set(vid, ++rank)
 		return ranks
@@ -65,13 +65,13 @@ const RANKING = {
 	 * Rows of the ranking table, filtered and sorted
 	 * - shown: videos to force to be filtered-in
 	 */
-	table(vdata, history, unplayable, {mode, search, shown}) {
+	table(vdata, history, {mode, search, shown}) {
 		let sorted
 		if(mode === 'history') {
 			const historyIndex = new Map(history.map((vid, i) => [vid, i]))
 			sorted = Object.keys(vdata).sort((a, b) => (historyIndex.get(a) ?? history.length) - (historyIndex.get(b) ?? history.length))
 		} else {
-			sorted = this.topOrder(vdata, unplayable)
+			sorted = this.topOrder(vdata)
 		}
 
 		const matches = this.matches(vdata, search)
