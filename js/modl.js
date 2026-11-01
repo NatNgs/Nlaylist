@@ -143,13 +143,14 @@ class PlaylistModel {
 		}
 
 		const vid = NEXT_PICKERS[mode || 'weighted_random'](vids, this.#vdata, history)
+		if(!vid) return null
 
 		// History: move vid to the front of the list
 		this.#removeFromHistory(vid)
 		this.history.unshift(vid)
 
 		// Update lastScore
-		this.#vdata[vid].lastScore = this.#vdata[vid].score
+		this.#vdata[vid].lastScore = this.#vdata[vid].score || null
 		this.#callUpdate()
 		return vid
 	}

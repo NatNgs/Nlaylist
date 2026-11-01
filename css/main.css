@@ -3,6 +3,7 @@ html, body {
 	min-width: 100%;
 	width: 100%;
 	overflow-x: hidden;
+	font-family: sans-serif;
 }
 body {
 	background-color: #444;
@@ -187,12 +188,20 @@ button:hover {
 	padding: .5em;
 	margin-top: 0;
 }
-.rankingItem {
+.rankingItem, #ranking_title {
 	display: grid;
 	grid-column: 1 / -1;
-	grid-template-columns: max-content minmax(4em, max-content) max-content auto; /* Browsers without subgrid: each row fits its own content */
 	grid-template-columns: subgrid;
 	grid-column-gap: 0.125em;
+}
+#ranking_title > * {
+	background-color: #DDD;
+	font-weight: bold;
+	padding: 0.125em;
+	text-align: center;
+}
+#ranking_title > .score {
+	grid-column: 2 / 4;
 }
 .rankingItem > * {
 	background-color: #AAA;
@@ -283,11 +292,13 @@ button:hover {
 .rankingItem.displayed > div {
 	background-color: #FF8;
 }
-#ranking_count .title {
-	grid-column-start: 4;
+#ranking_count {
 	color: #444;
 	font-style: italic;
 	background-color: #8CA;
+	grid-column: 1 / -1;
+	text-align: center;
+	padding: 0.25em;
 }
 
 /* Display links not with underline, but with superscrit arrow instead */

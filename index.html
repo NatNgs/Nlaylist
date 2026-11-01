@@ -28,6 +28,7 @@
 			<span><input type="checkbox" id="chkb_advctrls" onchange="toggleAdvancedControls()"/><label for="chkb_advctrls">Advanced controls</label></span>
 			<button onclick="resetList()" class="advanced">Reset list</button>
 			<select id="pickMode">
+				<option value="stop" hidden="hidden">STOP</option>
 				<option value="meta" selected>- Any -</option>
 				<option value="top_scores">Top</option>
 				<option value="similar_scores">Similar</option>
@@ -89,7 +90,14 @@
 				<button class="lastPage" onclick="goToRankingPage(Infinity)" title="Last page">»</button>
 			</div>
 		</div>
-		<div id="ranking"></div>
+		<div id="ranking">
+			<div id="ranking_count"></div>
+			<div id="ranking_title">
+				<div class="rank">#</div>
+				<div class="score">Score</div>
+				<div class="title">Title</div>
+			</div>
+		</div>
 		<div class="pagination">
 			<button class="firstPage" onclick="goToRankingPage(1)" title="First page">«</button>
 			<button class="previousPage" onclick="shiftRankingPage(-1)" title="Previous page">&lt;</button>

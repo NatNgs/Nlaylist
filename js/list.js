@@ -84,19 +84,7 @@ async function updateList(rankingDiv, allVdata, history, unplayable) {
 async function updateWholeList(rankingDiv, allVdata, vids, ranks, unplayable) {
 	// Rows of the page are kept and moved for CSS transitions to apply
 
-	// First row: count of results
-	let countDiv = document.getElementById('ranking_count')
-	if(!countDiv) {
-		countDiv = document.createElement('div')
-		countDiv.id = 'ranking_count'
-		countDiv.classList.add('rankingItem')
-		const countCell = document.createElement('div')
-		countCell.classList.add('title')
-		countDiv.appendChild(countCell)
-		rankingDiv.prepend(countDiv)
-	}
-
-	let previousDiv = countDiv // Rows are placed after the count row, in vids order
+	let previousDiv = document.getElementById('ranking_title') // Rows are placed after the title row
 	const listed = new Set()
 	for(const vid of vids) {
 		const vdata = allVdata[vid]
@@ -185,14 +173,14 @@ async function updateWholeList(rankingDiv, allVdata, vids, ranks, unplayable) {
 	// Find and remove rankingItem divs of videos not listed anymore (except ranking_count)
 	for(const div of rankingDiv.querySelectorAll('.rankingItem')) {
 		const did = div.id.replace('ranking_','')
-		if(did !== 'count' && !listed.has(did)) {
+		if(!listed.has(did)) {
 			div.remove()
 		}
 	}
 }
 
 function updateRankingCount({results, total, neverCompared}) {
-	const countCell = document.querySelector('#ranking_count .title')
+	const countCell = document.querySelector('#ranking_count')
 	countCell.innerText = `${results} result${results === 1 ? '' : 's'} / ${total} listed video${total === 1 ? '' : 's'}`
 	if(neverCompared > 0) {
 		countCell.innerText += ` (+${neverCompared} never compared yet)`

@@ -3,7 +3,8 @@ NEXT_PICKERS = {
 	'pure_random': pure_random,
 	'weighted_random': weighted_random,
 	'top_scores': top_scores,
-	'similar_scores': similar_scores
+	'similar_scores': similar_scores,
+	'stop': ()=>null,
 }
 
 
