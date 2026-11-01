@@ -127,10 +127,17 @@ button:hover {
 	display: flex;
 	flex-wrap: wrap;
 	align-items: center;
-	margin: 0.25em 1em 0 0; /* Buttons margins (0.25em) included: aligned with the ranking */
+	margin: 0.25em 1em 0 .5em; /* Buttons margins (0.25em) included: aligned with the ranking */
 }
 #rankingControls button.selected {
-	background-color: #8CA;
+	color: white;
+	background-color: #234;
+	transform: translateY(.25em);
+}
+#rankingControls .tabs {
+	padding-bottom: .5em;
+	margin-bottom: 0;
+	min-width: 5em;
 }
 .pagination {
 	display: flex;
@@ -152,6 +159,22 @@ button:hover {
 	color: gray;
 	cursor: default;
 }
+.searchInputContainer {
+	margin: 0.25em auto;
+	border: 0;
+	border-radius: 0;
+	background-color: #DDD;
+	display: flex;
+}
+.searchInputContainer > *, #rankingSearch {
+	margin: 0;
+	display: inline-block;
+	vertical-align: top;
+}
+.searchInputContainer #searchApplyButton {
+	border-left: 1px solid #DDD;
+}
+
 
 /* Rows share the columns of the ranking (subgrid): the rank, evolution and score columns fit their widest content, whatever the font */
 #ranking {
@@ -160,6 +183,9 @@ button:hover {
 	grid-column-gap: 0.125em;
 	grid-row-gap: 0.25em;
 	margin: 0.25em 1.25em 0.25em 0.25em; /* On the ranking, not on the rows: a subgrid margin would be taken from its first and last columns */
+	background-color: #234;
+	padding: .5em;
+	margin-top: 0;
 }
 .rankingItem {
 	display: grid;

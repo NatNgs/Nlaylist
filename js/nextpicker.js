@@ -1,6 +1,3 @@
-
-const SIMILAR_MARGIN_FACTORS = [1, 2] // similar_scores: margins of the points ranges, tried in this order until one range overlaps
-
 NEXT_PICKERS = {
 	'meta': meta_random, // Keep first in NEXT_PICKERS to avoid infinite loop^
 	'pure_random': pure_random,
@@ -68,7 +65,7 @@ function similar_scores(vids, vdata, history) {
 	// If none overlaps, same with margins widened (SIMILAR_MARGIN_FACTORS)
 	const last = SCORING.displayed(vdata[history[0]])
 	const displayed = vids.map(vid => SCORING.displayed(vdata[vid]))
-	for(const factor of SIMILAR_MARGIN_FACTORS) {
+	for(let factor = 1; factor <= 2; factor++) {
 		const weights = overlapWeights(displayed, last, factor)
 		const similar = vids.filter((vid, i) => weights[i] > 0)
 		if(similar.length) return weightedPick(similar, weights.filter(weight => weight > 0))

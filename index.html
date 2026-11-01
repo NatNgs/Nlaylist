@@ -62,22 +62,26 @@
 
 		<!-- Ranking -->
 		<div id="rankingControls">
-			<button id="rankingTop" onclick="setRankingMode('top')" title="Best videos first">Top</button>
-			<button id="rankingHistory" onclick="setRankingMode('history')" title="Last picked videos first">History</button>
-			<input id="rankingSearch" type="text" placeholder="Search" onkeydown="if(event.key === 'Enter') applyRankingSearch()"
-				title="Search in video titles&#10;? : any character&#10;* : any characters&#10;- _ : space or underscore"/>
-			<button onclick="clearRankingSearch()" title="Clear the search">×</button>
-			<button onclick="applyRankingSearch()">Apply</button>
-			<button id="goToLeft" onclick="goToPlayerVideo('left')" title="Show the page of the left video">Go to left</button>
-			<button id="goToRight" onclick="goToPlayerVideo('right')" title="Show the page of the right video">Go to right</button>
-			<select id="rankingPageSize" onchange="setRankingPageSize(Number(this.value))" title="Videos per page">
-				<option value="10">10 per page</option>
-				<option value="25" selected>25 per page</option>
-				<option value="50">50 per page</option>
-				<option value="100">100 per page</option>
-				<option value="250">250 per page</option>
-			</select>
+			<button id="rankingTop" class="tabs" onclick="setRankingMode('top')" title="Best videos first">Top</button>
+			<button id="rankingHistory" class="tabs" onclick="setRankingMode('history')" title="Last picked videos first">History</button>
+			<div class="searchInputContainer">
+				<input id="rankingSearch" type="text" placeholder="Search" onkeydown="if(event.key === 'Enter') applyRankingSearch()"
+					title="Search in video titles&#10;? : any single character&#10;* : any multiple characters&#10;- _ : space or underscore"/>
+				<button onclick="clearRankingSearch()" title="Clear the search">×</button>
+				<button id="searchApplyButton" onclick="applyRankingSearch()">Apply</button>
+			</div>
 			<div class="pagination">
+				<button id="goToLeft" onclick="goToPlayerVideo('left')" title="Show the page of the left video">Find left video</button>
+				<button id="goToRight" onclick="goToPlayerVideo('right')" title="Show the page of the right video">Find right video</button>
+				&nbsp;
+				<select id="rankingPageSize" onchange="setRankingPageSize(Number(this.value))" title="Videos per page">
+					<option value="10">10 per page</option>
+					<option value="25" selected>25 per page</option>
+					<option value="50">50 per page</option>
+					<option value="100">100 per page</option>
+					<option value="250">250 per page</option>
+				</select>
+				&nbsp;
 				<button class="firstPage" onclick="goToRankingPage(1)" title="First page">«</button>
 				<button class="previousPage" onclick="shiftRankingPage(-1)" title="Previous page">&lt;</button>
 				<span class="pageNumber">Page 1/1</span>

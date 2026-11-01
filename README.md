@@ -4,10 +4,6 @@ Display videos in a chain, asking everytime witch one of the last 2 was preferre
 
 ## Features
 
-### Save & Load to file
-
-TODO: describe this part
-
 ### Scoring: ELO with uncertainty
 
 Inspired by ELO and Glicko-1, every video has three values, updated after each vote:
@@ -35,11 +31,20 @@ The next video is picked from the playable videos, except the last half from the
 
 ### Autoskip unplayable videos
 
-TODO: describe this part
+When a video fails to load, whatever the reason is (video deleted, not available in your region, not available to be watched outside youtube, or loading timeout), video is automatically skipped, and marked as "Unplayable" (for the current session only, to avoid retrying to play the same over and over). A notification is sent to the user, and a next video is sent to be loaded instead.
 
 ### Merge & Delete
 
-TODO: describe this part
+User can chose to remove any video from the leaderboard or one of the two being played. Removed video are entirely deleted from the list and the save, with their score.
+
+Also a button allows the user to "Merge" videos if they are the same (it happens that for example a music have multiple different youtube video, and user may have imported multiple versions of the same by mistake). Merging will remove one of both, and merge the score of the removed one into the one that was kept.
+
+### Save & Load to file
+
+Nlaylist stores the session using the browser local storage.
+
+A button allows to export the state to a TSV file, and load a previous session from a TSV file.
+Loading a TSV file will not clear the current session : it will happend the data to the current session (helpful to merge multiple sessions into a single one for example).
 
 ### Keep track of played history
 
@@ -66,12 +71,6 @@ Example:
 - C vs D, D wins => register D > C, D > B, D > A
 - D vs E, D wins => reset combo and register D > E only
 
-### Save loaded data in browser cache
-
-Data is stored in local storage to be persistent from session to session.
-
-Save & Load to file are still available and recommended
-
 ### Ranking table: pages, sort modes and search
 
 All listed videos, using pagination, in one of two modes:
@@ -88,20 +87,3 @@ Search field :
 ### Ranking table: display green & red arrows on rank change
 
 Display green or red arrow next to video score, showing how its score changed since last time the video was picked to be displayed
-
-### Ranking table: remove a video
-
-Hovering the arrow cell of a video shows a trash button, removing the video from the list.
-A confirmation is asked, except for videos with low score and low score margin of error.
-
-## TODO list
-
-### Tab icon & title
-
-- Use proper HTML meta data
-- add link to https://NatNgs.github.io menu
-- improve background color (that gray is aweful) and menu buttons style
-
-### Import youtube playlists
-
-Work to be done
