@@ -1,17 +1,19 @@
 NEXT_PICKERS = {
-	'meta': meta_random, // Keep first in NEXT_PICKERS to avoid infinite loop^
+	'meta': meta_random,
 	'pure_random': pure_random,
 	'weighted_random': weighted_random,
 	'top_scores': top_scores,
 	'similar_scores': similar_scores,
-	'stop': ()=>null,
+	'stop': () => null, // Debug only (option hidden in the page): no video picked, the playlist stops
 }
+// Modes drawn at random by 'meta' (neither 'meta' itself nor the debug mode 'stop')
+const META_PICKERS = [pure_random, weighted_random, top_scores, similar_scores]
 
 
 function meta_random(vids, vdata, history) {
 	// Pick a random algorithm to pick the video to watch
-	const rand = (Math.random() * (Object.keys(NEXT_PICKERS).length-1))|0
-	return NEXT_PICKERS[Object.keys(NEXT_PICKERS)[1+rand]](vids, vdata, history)
+	const picker = META_PICKERS[(Math.random() * META_PICKERS.length)|0]
+	return picker(vids, vdata, history)
 }
 
 function pure_random(vids) {
@@ -50,7 +52,7 @@ function overlapWeights(displayed, ref, margin_mult=1) {
 }
 
 // Takes the best scored vid, and the vids whose score range overlaps it
-// Picks one of this selection at random
+// Picks one of them at random
 function top_scores(vids, vdata) {
 	const displayed = vids.map(vid => SCORING.displayed(vdata[vid]))
 	const best = displayed.reduce((a, b) => b.points > a.points ? b : a)
@@ -63,7 +65,7 @@ function similar_scores(vids, vdata, history) {
 
 	// Keep the vids whose displayed points range (points +/- margin) overlaps the one of the last picked vid (the one the next vid will be compared to)
 	// Pick one of them at random, weighted by their overlap
-	// If none overlaps, same with margins widened (SIMILAR_MARGIN_FACTORS)
+	// If none overlaps, same with margins doubled
 	const last = SCORING.displayed(vdata[history[0]])
 	const displayed = vids.map(vid => SCORING.displayed(vdata[vid]))
 	for(let factor = 1; factor <= 2; factor++) {
@@ -76,7 +78,7 @@ function similar_scores(vids, vdata, history) {
 	const lastScore = vdata[history[0]].score
 	const scores = vids.map(vid => [vid, Math.abs(vdata[vid].score - lastScore)])
 
-	// The last vid in history get its score divided by 2, to help it being selected
+	// The last vid in history gets its score divided by 2, to help it be selected
 	const historyIndex = new Map(history.map((vid, i) => [vid, i]))
 	const indexOf = vid => historyIndex.get(vid) ?? -1
 	scores.sort((a,b) => indexOf(b[0]) - indexOf(a[0]))

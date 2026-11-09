@@ -132,7 +132,7 @@ async function updateWholeList(rankingDiv, allVdata, vids, ranks, unplayable) {
 		// Display current score as % chance of win against average video
 		scoreCell.innerHTML = SCORING.describe(vdata)
 
-		// Higlight left and right vids, and grey unplayables
+		// Highlight left and right vids, and grey out unplayable ones
 		div.classList.toggle('displayed', vid === PLAYERS.left?.videoId || vid === PLAYERS.right?.videoId)
 		div.classList.toggle('unplayable', unplayable.has(vid))
 		div.title = unplayable.has(vid) ? 'Failed to play' : ''
@@ -170,7 +170,7 @@ async function updateWholeList(rankingDiv, allVdata, vids, ranks, unplayable) {
 		listed.add(vid)
 	}
 
-	// Find and remove rankingItem divs of videos not listed anymore (except ranking_count)
+	// Find and remove rankingItem divs of videos not listed anymore
 	for(const div of rankingDiv.querySelectorAll('.rankingItem')) {
 		const did = div.id.replace('ranking_','')
 		if(!listed.has(did)) {
@@ -180,7 +180,7 @@ async function updateWholeList(rankingDiv, allVdata, vids, ranks, unplayable) {
 }
 
 function updateRankingCount({results, total, neverCompared}) {
-	const countCell = document.querySelector('#ranking_count')
+	const countCell = document.getElementById('ranking_count')
 	countCell.innerText = `${results} result${results === 1 ? '' : 's'} / ${total} listed video${total === 1 ? '' : 's'}`
 	if(neverCompared > 0) {
 		countCell.innerText += ` (+${neverCompared} never compared yet)`

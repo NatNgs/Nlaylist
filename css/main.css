@@ -8,6 +8,10 @@ html, body {
 body {
 	background-color: #444;
 }
+/* Form controls do not inherit the font family by default (their font size is kept) */
+button, input, select {
+	font-family: inherit;
+}
 /* Selects and text fields: same style as the buttons (angular, plain background). Native look of selects removed, arrow drawn by an inline SVG */
 select {
 	appearance: none;
@@ -123,12 +127,13 @@ button:hover {
 /* ******* */
 /* RANKING */
 
-/* Controls above the ranking (mode, search, Go to buttons, page size, pagination) */
+/* Controls above the ranking (mode tabs, search, Find video buttons, page size, pagination) */
 #rankingControls {
 	display: flex;
 	flex-wrap: wrap;
 	align-items: center;
-	margin: 0.25em 1em 0 .5em; /* Buttons margins (0.25em) included: aligned with the ranking */
+	/* Right: buttons margins (0.25em) included, aligned with the ranking. Left: tabs indented from the ranking edge */
+	margin: 0.25em 1em 0 .5em;
 }
 #rankingControls button.selected {
 	color: white;
@@ -136,6 +141,7 @@ button:hover {
 	transform: translateY(.25em);
 }
 #rankingControls .tabs {
+	align-self: flex-end; /* Tabs stick to the ranking, whatever the height of the other controls */
 	padding-bottom: .5em;
 	margin-bottom: 0;
 	min-width: 5em;
@@ -160,17 +166,17 @@ button:hover {
 	color: gray;
 	cursor: default;
 }
+#rankingPageSize {
+	margin-left: 0.6em;
+	margin-right: 0.6em;
+}
 .searchInputContainer {
 	margin: 0.25em auto;
-	border: 0;
-	border-radius: 0;
 	background-color: #DDD;
 	display: flex;
 }
-.searchInputContainer > *, #rankingSearch {
+.searchInputContainer > *, #rankingSearch { /* #rankingSearch: more specific than input[type="text"], which sets a margin */
 	margin: 0;
-	display: inline-block;
-	vertical-align: top;
 }
 .searchInputContainer #searchApplyButton {
 	border-left: 1px solid #DDD;
@@ -183,10 +189,10 @@ button:hover {
 	grid-template-columns: max-content minmax(4em, max-content) max-content auto;
 	grid-column-gap: 0.125em;
 	grid-row-gap: 0.25em;
-	margin: 0.25em 1.25em 0.25em 0.25em; /* On the ranking, not on the rows: a subgrid margin would be taken from its first and last columns */
+	/* On the ranking, not on the rows: a subgrid margin would be taken from its first and last columns */
+	margin: 0 1.25em 0.25em 0.25em;
 	background-color: #234;
 	padding: .5em;
-	margin-top: 0;
 }
 .rankingItem, #ranking_title {
 	display: grid;
@@ -218,7 +224,7 @@ button:hover {
 .rankingItem .score {
 	text-align: right;
 }
-/* Note always as wide as the widest of ♪, ♫ and ♭ (reserved by a hidden copy of each, one per line), so that the points are aligned from a row to another */
+/* Note always as wide as the widest of ♪, ♫ and ♭ (reserved by a hidden copy of each, one per line), so that the points are aligned from one row to another */
 .rankingItem .note {
 	display: inline-flex;
 	flex-direction: column;
@@ -232,7 +238,7 @@ button:hover {
 	overflow: hidden;
 	visibility: hidden;
 }
-/* Margin value always 2 digits wide, so that the ± are aligned from a row to another */
+/* Margin value always 2 digits wide, so that the ± are aligned from one row to another */
 .rankingItem .marginValue {
 	display: inline-block;
 	min-width: 2ch;
@@ -250,7 +256,7 @@ button:hover {
 	color: #666;
 	font-family: monospace;
 }
-/* Arrow on the left and percentage on the right of the column, so that both are aligned from a row to another */
+/* Arrow on the left and percentage on the right of the column, so that both are aligned from one row to another */
 .rankingItem .upd {
 	display: flex;
 	justify-content: space-between;
@@ -292,7 +298,10 @@ button:hover {
 .rankingItem.displayed > div {
 	background-color: #FF8;
 }
+/* Count row across all the columns, without widening them */
+/* (a spanning item wider than its columns widens the max-content ones: rank and score) */
 #ranking_count {
+	contain: inline-size;
 	color: #444;
 	font-style: italic;
 	background-color: #8CA;
@@ -301,7 +310,7 @@ button:hover {
 	padding: 0.25em;
 }
 
-/* Display links not with underline, but with superscrit arrow instead */
+/* Display links not with underline, but with superscript arrow instead */
 a {
 	text-decoration: none;
 }

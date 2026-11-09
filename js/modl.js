@@ -52,7 +52,7 @@ class PlaylistModel {
 		this.#unplayable = new Set() // Not stored in localStorage
 
 		// Combo mode - Not stored in localStorage
-		this.#combo = [] // List of previously compared videos by order or comparisons
+		this.#combo = [] // List of previously compared videos, in order of comparison
 		this.#comboDir = 0 // Any score between two consecutive members of combo array
 
 		this.#isCallingUpdate = false
@@ -129,7 +129,7 @@ class PlaylistModel {
 		let vids = Object.keys(this.#vdata)
 			.filter(vid => !this.#unplayable.has(vid))
 
-		// Remove last half played and uplayable
+		// Remove last half played and unplayable
 		const history = this.history.filter(vid => !this.#unplayable.has(vid))
 		const historyIndex = new Map(history.map((vid, i) => [vid, i]))
 		vids = vids.filter(vid => {
@@ -150,7 +150,7 @@ class PlaylistModel {
 		this.history.unshift(vid)
 
 		// Update lastScore
-		this.#vdata[vid].lastScore = this.#vdata[vid].score || null
+		this.#vdata[vid].lastScore = this.#vdata[vid].score
 		this.#callUpdate()
 		return vid
 	}
@@ -192,7 +192,7 @@ class PlaylistModel {
 				this.#combo.reverse().push(id_b)
 			} else if(this.#combo[0] === id_b && score/this.#comboDir > 0) {
 				this.#combo.reverse().push(id_a)
-				// reverse references such as combo array ends with [... id_a, id_b]
+				// reverse references so that combo array ends with [... id_a, id_b]
 				const tmp = id_b
 				id_b = id_a
 				id_a = tmp
@@ -201,7 +201,7 @@ class PlaylistModel {
 				this.#combo.push(id_b)
 			} else if(this.#combo.at(-1) === id_b && score/this.#comboDir < 0) {
 				this.#combo.push(id_a)
-				// reverse references such as combo array ends with [... id_a, id_b]
+				// reverse references so that combo array ends with [... id_a, id_b]
 				const tmp = id_b
 				id_b = id_a
 				id_a = tmp
@@ -217,10 +217,10 @@ class PlaylistModel {
 		const lastIndex = this.#combo.length-1
 		const prevIndex = this.#combo.indexOf(this.#combo[lastIndex])
 		if(prevIndex < lastIndex) this.#combo.splice(prevIndex, 1)
-		// --- here, combo array is like [..., id_a, id_b], such as any pair of 2 consecutive elements have been scored in the same direction [a > b > c > ... > id_a > id_b] or [a < b < c < ... < id_a < id_b]
+		// --- here, combo array is like [..., id_a, id_b], such that any pair of 2 consecutive elements have been scored in the same direction [a > b > c > ... > id_a > id_b] or [a < b < c < ... < id_a < id_b]
 		this.#comboDir = score // keep track of combo array direction
 
-		// Apply a vote from id_b to every previous combo members, from the end of combo array to the beginning (id_a first)
+		// Apply a vote from id_b to every previous combo member, from the end of combo array to the beginning (id_a first)
 		const opponents = this.#combo.slice(0, -1).reverse()
 		SCORING.applyVote(this.#vdata[id_b], opponents.map(vid => this.#vdata[vid]), score)
 		console.debug('Vote', score, id_b, 'against', opponents)
@@ -283,7 +283,7 @@ class PlaylistModel {
 			if(header[1] !== TSV_VERSION) throw new Error(`Unsupported file format: ${header[1]}`)
 		}
 
-		// Parse text such as every line is "<video url> <title> <duration> <score columns>" (legacy format: "<video url> <score> <title> <duration>"). Ignore other lines
+		// Parse text such that every line is "<video url> <title> <duration> <score columns>" (legacy format: "<video url> <score> <title> <duration>"). Ignore other lines
 		for(const r of rows) {
 			const parts = r.split('\t')
 			if(header) {

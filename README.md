@@ -1,6 +1,6 @@
 # Nlaylist: Youtube video player and ranking
 
-Display videos in a chain, asking everytime witch one of the last 2 was preferred, and make a ranking with given inputs.
+Displays videos in a chain, asking every time which one of the last 2 was preferred, and makes a ranking from the given inputs.
 
 ## Features
 
@@ -14,55 +14,55 @@ Inspired by ELO and Glicko-1, every video has three values, updated after each v
 
 On every comparison, these 3 scores are updated, depending on the values of the two videos being compared.
 
-After every vote, uncertainty goes down, stabilizing the scores (the higher the certainty, the lower the score will change).
+After every vote, uncertainty goes down, stabilizing the scores (the higher the certainty, the less the score will change).
 
-Before every vote, a prediction is made ("Chance"), according to scores, of what will be the video selected by the user.
+Before every vote, a prediction is made ("Chance"), according to scores, of which video the user will select.
 If the prediction was wrong, 'surprise' will increase, and may make uncertainty go up again
 
 ### Next video selection
 
 The next video is picked from the playable videos, except the last half from the history (recently played videos are never an option), using one of these modes, chosen by the user:
 
-- **Any** (default): For every next video to pick, will follow one of the following modes, drawn at random (same probability)
+- **Any** (default): For every next video to pick, follows one of the following modes, drawn at random (same probability)
 - **Random**: Pure random, all videos have the same chance to be selected
-- **Top**: Picks one of the best videos (takes the very best candidate, and find all other candidates having similar scores (according to uncertainty). Will select one of these at random, as the next video)
-- **Similar**: Picks video with a similar score than the last one played (Every candidate is given a weight according to the overlaps of their scores with the right video, considering the score and margin of error. If none overlaps, will retry with margins doubled, and if still no match, will pick one with the closest score ignoring the margins). Useful to refine the ranking
-- **Weighted**: Picks video at random, with more chance to pick high scored ones rather than others. The oldest video in history (the one that was played the longest time ago) is given a chance boost
+- **Top**: Picks one of the best videos (takes the very best candidate, and finds all other candidates having similar scores (according to uncertainty). Selects one of these at random, as the next video)
+- **Similar**: Picks a video with a score similar to the last one played (Every candidate is given a weight according to the overlaps of their scores with the right video, considering the score and margin of error. If none overlaps, will retry with margins doubled, and if still no match, will pick one with the closest score ignoring the margins). Useful to refine the ranking
+- **Weighted**: Picks a video at random, with more chance to pick high-scored ones rather than others. The oldest video in history (the one that was played the longest time ago) is given a chance boost
 
 ### Autoskip unplayable videos
 
-When a video fails to load, whatever the reason is (video deleted, not available in your region, not available to be watched outside youtube, or loading timeout), video is automatically skipped, and marked as "Unplayable" (for the current session only, to avoid retrying to play the same over and over). A notification is sent to the user, and a next video is sent to be loaded instead.
+When a video fails to load, whatever the reason is (video deleted, not available in your region, not available to be watched outside YouTube, or loading timeout), the video is automatically skipped, and marked as "Unplayable" (for the current session only, to avoid retrying the same one over and over). A notification is sent to the user, and another video is loaded instead.
 
 ### Merge & Delete
 
-User can chose to remove any video from the leaderboard or one of the two being played. Removed video are entirely deleted from the list and the save, with their score.
+The user can choose to remove any video from the leaderboard, or one of the two being played. Removed videos are entirely deleted from the list and from the save, along with their score.
 
-Also a button allows the user to "Merge" videos if they are the same (it happens that for example a music have multiple different youtube video, and user may have imported multiple versions of the same by mistake). Merging will remove one of both, and merge the score of the removed one into the one that was kept.
+A button also allows the user to "Merge" videos if they are the same (for example, a song may have several different YouTube videos, and the user may have imported several versions of it by mistake). Merging removes one of the two, and merges the score of the removed one into the one that was kept.
 
 ### Save & Load to file
 
 Nlaylist stores the session using the browser local storage.
 
-A button allows to export the state to a TSV file, and load a previous session from a TSV file.
-Loading a TSV file will not clear the current session : it will happend the data to the current session (helpful to merge multiple sessions into a single one for example).
+Buttons allow exporting the state to a TSV file, and loading a previous session from a TSV file.
+Loading a TSV file does not clear the current session: it appends the data to the current session (helpful to merge multiple sessions into a single one, for example).
 
 ### Keep track of played history
 
-Everytime a video is played, is added back to an 'history' stack.
+Every time a video is played, it is added back to a 'history' stack.
 
-First half of history stack will not be picked when switching to next video, to prevent repeat the same videos over and over.
+The first half of the history stack is not picked when switching to the next video, to avoid repeating the same videos over and over.
 
-Save file is ordered by the last time a video was played, so that next time file is loaded, history can be recovered
+The save file is ordered by the last time each video was played, so that the history can be recovered the next time the file is loaded
 
-Note: No date are stored, only the order of video played
+Note: no dates are stored, only the order in which videos were played
 
 ### Combo mode
 
-When multiple votes on the same side, infer the vote between current right video, and previous left videos
+When several votes in a row are on the same side, the votes between the current right video and the previous left videos are inferred
 
 When vote on the same side as previous pair, continue combo\
 When vote on the opposite side as previous pair, reset combo\
-When skip without note or =, reset combo\
+When skip without vote or =, reset combo\
 When delete or merge, keep current combo
 
 Example:
@@ -78,12 +78,12 @@ All listed videos, using pagination, in one of two modes:
 - **Top**: videos ordered by ranking (best with high confidence first, low confidence near the middle, worst with high confidence last)
 - **History**: last picked videos first (the preloaded next video, then the right and left videos, then the following in order of last time played)
 
-Search field :
-- Filters the list finding only videos matching the search input
+Search field:
+- Filters the list, keeping only the videos matching the search input
 - Every word separated by spaces must be found in the title, in any order, anywhere (as if it started and ended with `*`)
-- Wildcards : `?` = any character, `*` = any character**s**, `_`: a space or an underscore (separating words by spaces will look for them in any order; using `_` will force that as a unique 'word' that contains a space)
-- Pasting a video ID or url will also look for it in the list
+- Wildcards: `?` = any character, `*` = any character**s**, `_`: a space or an underscore (separating words by spaces will look for them in any order; using `_` will force that as a unique 'word' that contains a space)
+- Pasting a video ID or URL will also look for it in the list
 
 ### Ranking table: display green & red arrows on rank change
 
-Display green or red arrow next to video score, showing how its score changed since last time the video was picked to be displayed
+Displays a green or red arrow next to the video score, showing how its score changed since the last time the video was picked to be displayed

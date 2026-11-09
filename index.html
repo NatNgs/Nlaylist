@@ -28,7 +28,7 @@
 			<span><input type="checkbox" id="chkb_advctrls" onchange="toggleAdvancedControls()"/><label for="chkb_advctrls">Advanced controls</label></span>
 			<button onclick="resetList()" class="advanced">Reset list</button>
 			<select id="pickMode">
-				<option value="stop" hidden="hidden">STOP</option>
+				<option value="stop" hidden="hidden">STOP</option> <!-- Debug only: shown from the developer tools, stops the playlist -->
 				<option value="meta" selected>- Any -</option>
 				<option value="top_scores">Top</option>
 				<option value="similar_scores">Similar</option>
@@ -74,7 +74,6 @@
 			<div class="pagination">
 				<button id="goToLeft" onclick="goToPlayerVideo('left')" title="Show the page of the left video">Find left video</button>
 				<button id="goToRight" onclick="goToPlayerVideo('right')" title="Show the page of the right video">Find right video</button>
-				&nbsp;
 				<select id="rankingPageSize" onchange="setRankingPageSize(Number(this.value))" title="Videos per page">
 					<option value="10">10 per page</option>
 					<option value="25" selected>25 per page</option>
@@ -82,7 +81,6 @@
 					<option value="100">100 per page</option>
 					<option value="250">250 per page</option>
 				</select>
-				&nbsp;
 				<button class="firstPage" onclick="goToRankingPage(1)" title="First page">«</button>
 				<button class="previousPage" onclick="shiftRankingPage(-1)" title="Previous page">&lt;</button>
 				<span class="pageNumber">Page 1/1</span>

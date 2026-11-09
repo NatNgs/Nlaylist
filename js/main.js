@@ -475,7 +475,7 @@ async function skip() {
 		PLAYERS.left.stopVideo()
 		PLAYERS.right.playVideo()
 	} else {
-		// Left video isn'nt playing: stop right video (it becomes the left one), then do shift and play the new right video
+		// Left video isn't playing: stop right video (it becomes the left one), then do shift and play the new right video
 		PLAYERS.right.stopVideo()
 		void shiftVids(false, false, true)
 	}
