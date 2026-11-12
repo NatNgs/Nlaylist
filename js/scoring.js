@@ -18,8 +18,9 @@ const SURPRISE_VOTE_MAX = 9
 const SURPRISE_THRESHOLD = 1.5 // If surprise goes above this, uncertainty will rise
 const SURPRISE_UNCERTAINTY = 50 // Uncertainty added (quadratically) per surprise unit above 1
 const SPREAD_MIN = 100 // Minimal typical spread of scores, used to sort the ranking while few votes are known
-const NOTE_HIGH_MIN = 51 // Video noted ♫ when its lowest displayed points (points - margin) reach this value
-const NOTE_LOW_MAX = 30 // Video noted ♭ when its highest displayed points (points + margin) are under this value
+const NOTE_PREFFERED_MIN = 80 // Video noted 𝄞 when points-2*margin is above this value
+const NOTE_HIGH_MIN = 66.667 // Video noted ♫ when points-margin is above this value
+const NOTE_LOW_MAX = 33.333 // Video noted ♭ when points+margin is under this value
 
 function scoreToProba(eloA, eloB) {
 	return 1 / (1 + Math.pow(10, (eloB - eloA) / ELO_BASE))
@@ -88,9 +89,9 @@ const SCORING = {
 		return 50*(scoreToProba(data.score + data.uncertainty, 0) - scoreToProba(data.score - data.uncertainty, 0))
 	},
 
-	// Score evolution since the video was last picked, in %
+	// Score evolution since the video was last picked
 	evolution(data) {
-		return 200*scoreToProba(data.score, data.lastScore) - 100
+		return 100*(scoreToProba(data.score, 0) - scoreToProba(data.lastScore, 0))
 	},
 
 	// Displayed points and margin: points rounded, margin rounded up
@@ -98,10 +99,14 @@ const SCORING = {
 		return {points: Math.round(this.points(data)), margin: Math.ceil(this.pointsMargin(data))}
 	},
 
-	// Note of the displayed points: ♫ when the lowest points (points - margin) reach NOTE_HIGH_MIN, ♭ when the highest points (points + margin) are under NOTE_LOW_MAX, ♪ otherwise
+	// Music note representing the score and margin
 	note(data) {
 		const {points, margin} = this.displayed(data)
-		return points - margin >= NOTE_HIGH_MIN ? '♫' : points + margin < NOTE_LOW_MAX ? '♭' : '♪'
+		if(points - 2*margin >= NOTE_PREFFERED_MIN) return '𝄞' // High confidence & high score
+		if(points - margin >= NOTE_HIGH_MIN) return '♫' // Confidently preferred
+		if(points + margin < NOTE_LOW_MAX) return '♭' // Confidently non preferred
+		if(points + margin >= NOTE_HIGH_MIN && points - margin < NOTE_LOW_MAX) return '♮' // Uncertain
+		return '♪' // Average
 	},
 
 	// Score description (HTML): displayed points and their note, followed by their margin

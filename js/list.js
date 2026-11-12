@@ -138,15 +138,15 @@ async function updateWholeList(rankingDiv, allVdata, vids, ranks, unplayable) {
 		div.title = unplayable.has(vid) ? 'Failed to play' : ''
 
 		// Compare last with current score
-		let scoreDiff = Math.round(SCORING.evolution(vdata))
+		const scoreDiff = Math.round(SCORING.evolution(vdata))
 		const arrowSpan = updCell.children[0]
 		const percentSpan = updCell.children[1]
 		if(scoreDiff < 0) {
 			arrowSpan.textContent = '▼'
-			percentSpan.textContent = `${scoreDiff}%`
+			percentSpan.textContent = `${scoreDiff}`
 		} else if(scoreDiff > 0) {
 			arrowSpan.textContent = '▲'
-			percentSpan.textContent = `+${scoreDiff}%`
+			percentSpan.textContent = `+${scoreDiff}`
 		} else {
 			arrowSpan.textContent = ''
 			percentSpan.textContent = ''
