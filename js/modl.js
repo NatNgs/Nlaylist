@@ -141,7 +141,6 @@ class PlaylistModel {
 		}
 
 		console.log('Picking next', mode || 'weighted_random')
-		console.log(vids)
 		const vid = NEXT_PICKERS[mode || 'weighted_random'](vids, this.#vdata, history)
 		if(!vid) return null
 

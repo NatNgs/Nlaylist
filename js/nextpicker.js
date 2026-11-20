@@ -29,34 +29,23 @@ function pure_random(vids) {
 // // // WEIGHTED // // //
 
 function weighted_random(vids, vdata, history) {
-	// Weight 1 : Video score (as displayed); normalized such as maximum is size(candidates) and minimum is 1
-	const w1 = normalize_list(vids.map(vid => SCORING.points(vdata[vid])), 1, vids.length)
+	// Weight 1 : Video score (as displayed); normalized from ]0, 100[ to ]0, 1[
+	const w1 = vids.map(vid => SCORING.points(vdata[vid]) /100)
 
-	// Weight 2 : Video margin (as displayed); normalized such as max is size(candidates) and minimum is 1
-	const w2 = normalize_list(vids.map(vid => SCORING.pointsMargin(vdata[vid])), 1, vids.length)
+	// Weight 2 : Video margin (as displayed); normalized from [0, 50[ to [0, 1[
+	const w2 = vids.map(vid => SCORING.pointsMargin(vdata[vid]) / 50)
 
-	// Weight 3 : Rank in history; most recently played is 1; least recently played is size(candidates); others are between, by order of history
-	const w3 = normalize_list(vids.map(v => history.length - history.indexOf(v)), 1, vids.length) // last played is history.indexOf(v) := 0 ; histo.len - index => reverse the order
+	// Weight 3 : Position in history; converted from [1, histo.length] to [1, 1/size(history)] (range: ]0, 1])
+	const w3 = vids.map(v => {
+		const i = history.indexOf(v)
+		return i < 0 ? 1 : (i+1)/history.length
+	})
 
 	// Combining the weights, applying square to increase the differences of chances
 	const weights = vids.map((_,i) => (w1[i]+w2[i]+w3[i])**2)
 	console.debug(vids.map((v,i)=>({v, w:weights[i], w1:w1[i], w2:w2[i], w3:w3[i], histo:history.indexOf(v), points:SCORING.points(vdata[v]), margin:SCORING.pointsMargin(vdata[v])})))
 
 	return weightedPick(vids, weights)
-}
-function normalize_list(list, min, max) {
-	let l_min = list[0]
-	let l_max = list[0]
-	for(const v of list) {
-		if(v < l_min) l_min = v
-		else if(v > l_max) l_max = v
-	}
-	if(l_min === l_max) { // all elements in list have the same score
-		const avg = (min+max)/2
-		return list.map(_=>avg)
-	}
-	const mm = (l_max-l_min)/(max-min)
-	return list.map(s => (s-l_min)/mm + min)
 }
 function weightedPick(vids, weights) {
 	// Pick a random vid, with a chance proportional to its weight
