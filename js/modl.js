@@ -130,7 +130,7 @@ class PlaylistModel {
 		const historyIndex = new Map(history.map((vid, i) => [vid, i]))
 		let vids = Object.keys(this.#vdata)
 			.filter(vid => !this.#unplayable.has(vid)) // Exclude unplayables
-		vids.filter(vid => { // Exclude the half most recently played
+		vids = vids.filter(vid => { // Exclude the half most recently played
 			const i = historyIndex.get(vid) ?? -1
 			return i === -1 || i > vids.length/2 // recently played are first in history
 		})
