@@ -40,6 +40,7 @@ function weighted_random(vids, vdata, history) {
 
 	// Combining the weights, applying square to increase the differences of chances
 	const weights = vids.map((_,i) => (w1[i]+w2[i]+w3[i])**2)
+	console.debug(vids.map((v,i)=>({v, w:weights[i], w1, w2, w3, histo:history.indexOf(v), points:SCORING.points(vdata[v]), margin:SCORING.pointsMargin(vdata[v])})))
 
 	return weightedPick(vids, weights)
 }
