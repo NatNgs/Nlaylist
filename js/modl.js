@@ -128,12 +128,12 @@ class PlaylistModel {
 		// Remove last half played and unplayable
 		const history = this.history.filter(vid => !this.#unplayable.has(vid))
 		const historyIndex = new Map(history.map((vid, i) => [vid, i]))
-		const vids = Object.keys(this.#vdata)
+		let vids = Object.keys(this.#vdata)
 			.filter(vid => !this.#unplayable.has(vid)) // Exclude unplayables
-			.filter(vid => { // Exclude the half most recently played
-				const i = historyIndex.get(vid) ?? -1
-				return i === -1 || i > vids.length/2 // recently played are first in history
-			})
+		vids.filter(vid => { // Exclude the half most recently played
+			const i = historyIndex.get(vid) ?? -1
+			return i === -1 || i > vids.length/2 // recently played are first in history
+		})
 
 		if(!vids.length) {
 			alert('Not enough playable video left')
